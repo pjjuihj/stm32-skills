@@ -694,3 +694,70 @@ python <skill-path>/scripts/compare.py --trend --history-dir history/ --report t
 
 - **JSON**：结构化对比数据
 - **Markdown 报告**：`regression_report.md`，包含段大小对比表、符号变化列表、问题汇总
+
+## Git 上传说明
+
+### 首次上传到 GitHub
+
+1. **初始化本地仓库**（如果还不是 Git 仓库）：
+   ```bash
+   cd <skill目录>
+   git init
+   git add -A
+   git commit -m "feat: STM32 Keil Workflow skill"
+   ```
+
+2. **在 GitHub 创建仓库**：
+   - 打开 https://github.com/new
+   - 仓库名：`stm32-skills`（或自定义名称）
+   - 选择 Private（推荐）
+   - 点击 Create repository
+
+3. **配置 Git 凭据管理器**（避免重复输入 token）：
+   ```bash
+   git config --global credential.helper store
+   ```
+
+4. **添加远程仓库并推送**：
+   ```bash
+   git remote add origin https://github.com/<用户名>/<仓库名>.git
+   git push -u origin main
+   ```
+   系统会提示输入 Username 和 Password（token），输入一次后自动保存。
+
+### CMD 截断问题解决
+
+Windows CMD 对长命令有字符限制，token 可能被截断。解决方案：
+
+**方案 1：使用 VS Code 终端**（推荐）
+- VS Code 终端没有 CMD 截断限制
+- 直接在 VS Code 中执行 `git push` 命令
+
+**方案 2：使用 Git 凭据管理器**
+```bash
+git config --global credential.helper store
+git remote set-url origin https://github.com/<用户名>/<仓库名>.git
+git push -u origin main
+```
+输入一次 token 后自动保存。
+
+**方案 3：使用 GitHub Desktop**
+- 下载安装：https://desktop.github.com/
+- 登录后添加本地仓库
+- 点击 Publish Repository
+
+### 安全注意事项
+
+- **不要**将 token 直接写入文件（如 .bat、.sh、.md）
+- **不要**将 token 提交到 Git 仓库
+- **使用** Git 凭据管理器或 GitHub Desktop 自动管理认证
+- **定期**更新 token（GitHub PAT 支持过期时间设置）
+
+### 更新技能
+
+修改技能后，提交并推送更新：
+```bash
+git add -A
+git commit -m "feat: 描述修改内容"
+git push
+```
