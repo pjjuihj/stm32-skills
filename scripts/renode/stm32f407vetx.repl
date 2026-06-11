@@ -1,0 +1,121 @@
+// STM32F407VETx Platform Description for Renode
+// Based on Cortex-M4 with standard STM32F4 peripherals
+// Used by stm32-keil-workflow skill for firmware simulation
+
+cpu: CPU.CortexM @ sysbus
+    cpuType: "cortex-m4f"
+    nvic: nvic
+
+nvic: IRQControllers.NVIC @ sysbus 0xE000E000
+    priorityMask: 0xF0
+    systickFrequency: 168000000
+    IRQ -> cpu@0
+
+systick: Timers.CortexSysTick @ sysbus 0xE000E010
+    IRQ -> nvic@15
+
+// Flash: 512KB at 0x08000000
+flash: Memory.MappedMemory @ sysbus 0x08000000
+    size: 0x80000
+
+// SRAM: 112KB at 0x20000000 (64KB + 64KB, simplified as one block)
+sram: Memory.MappedMemory @ sysbus 0x20000000
+    size: 0x1C000
+
+// CCM RAM: 16KB at 0x10000000
+ccm_ram: Memory.MappedMemory @ sysbus 0x10000000
+    size: 0x4000
+
+// RCC (Reset and Clock Control)
+rcc: STM32_RCC @ sysbus 0x40023800
+    frequency: 168000000
+
+// GPIO Ports
+gpioA: GPIOPort.STM32_GPIOPort @ sysbus 0x40020000
+    numberOfAFs: 16
+    [0x00] gpioA.AFRL
+    [0x04] gpioA.AFRH
+
+gpioB: GPIOPort.STM32_GPIOPort @ sysbus 0x40020400
+    numberOfAFs: 16
+
+gpioC: GPIOPort.STM32_GPIOPort @ sysbus 0x40020800
+    numberOfAFs: 16
+
+gpioD: GPIOPort.STM32_GPIOPort @ sysbus 0x40020C00
+    numberOfAFs: 16
+
+gpioE: GPIOPort.STM32_GPIOPort @ sysbus 0x40021000
+    numberOfAFs: 16
+
+// USART1
+usart1: UART.STM32_UART @ sysbus 0x40011000
+    IRQ -> nvic@37
+    frequency: 42000000
+
+// USART2
+usart2: UART.STM32_UART @ sysbus 0x40004400
+    IRQ -> nvic@38
+    frequency: 42000000
+
+// I2C1
+i2c1: I2C.STM32F4_I2C @ sysbus 0x40005400
+    EventInterrupt -> nvic@31
+    ErrorInterrupt -> nvic@32
+
+// I2C2
+i2c2: I2C.STM32F4_I2C @ sysbus 0x40005800
+    EventInterrupt -> nvic@33
+    ErrorInterrupt -> nvic@34
+
+// TIM2 (32-bit timer)
+tim2: Timers.STM32F4_Timer @ sysbus 0x40000000
+    frequency: 84000000
+    initialLimit: 0xFFFFFFFF
+    IRQ -> nvic@28
+
+// TIM3 (16-bit timer)
+tim3: Timers.STM32F4_Timer @ sysbus 0x40000400
+    frequency: 84000000
+    IRQ -> nvic@29
+
+// TIM4 (16-bit timer)
+tim4: Timers.STM32F4_Timer @ sysbus 0x40000800
+    frequency: 84000000
+    IRQ -> nvic@30
+
+// TIM6 (Basic timer - used as timebase)
+tim6: Timers.STM32F4_Timer @ sysbus 0x40001000
+    frequency: 84000000
+    IRQ -> nvic@54
+
+// IWDG (Independent Watchdog)
+iwdg: Watchdog.IWDG @ sysbus 0x40003000
+
+// DMA1
+dma1: DMA.STM32F4_DMA @ sysbus 0x40026000
+    IRQ -> nvic@11, nvic@12, nvic@13, nvic@14, nvic@15, nvic@16, nvic@17
+
+// DMA2
+dma2: DMA.STM32F4_DMA @ sysbus 0x40026400
+    IRQ -> nvic@56, nvic@57, nvic@58, nvic@59, nvic@60, nvic@68, nvic@69
+
+// EXTI (External Interrupts)
+exti: EXTI.STM32F4_EXTI @ sysbus
+    [0x00] exti.IMR
+    [0x04] exti.EMR
+    [0x08] exti.RTSR
+    [0x0C] exti.FTSR
+    [0x10] exti.SWIER
+    [0x14] exti.PR
+    EXTI0 -> nvic@6
+    EXTI1 -> nvic@7
+    EXTI2 -> nvic@8
+    EXTI3 -> nvic@9
+    EXTI4 -> nvic@10
+
+// PWR (Power Control)
+pwr: STM32F4_PWR @ sysbus 0x40007000
+
+// Flash Interface
+flash_controller: STM32F4_FlashController @ sysbus 0x40023C00

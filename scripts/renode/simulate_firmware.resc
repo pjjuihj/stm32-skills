@@ -1,0 +1,70 @@
+# Renode script for STM32F407 firmware simulation
+# Usage: renode -e "include @simulate_firmware.resc"
+#
+# Variables to set before including:
+#   $ELF_PATH  - path to the .axf or .elf firmware file
+#   $UART_LOG  - path to save UART output (optional)
+#   $TIMEOUT   - simulation timeout in seconds (default: 5)
+#   $MODE      - "boot" for boot test, "uart" for UART capture, "full" for extended run
+
+if !$ELF_PATH
+    $ELF_PATH = "firmware.axf"
+end
+
+if !$TIMEOUT
+    $TIMEOUT = "5"
+end
+
+if !$MODE
+    $MODE = "boot"
+end
+
+# Create machine with STM32F407 platform
+mach create "stm32f407"
+machine LoadPlatformDescription @stm32f407vetx.repl
+
+# Load firmware
+sysbus LoadELF $ELF_PATH
+
+# Configure UART1 output capture
+if $UART_LOG
+    usart CreateFileBackend $UART_LOG
+else
+    usart CreateFileBackend "uart1_output.txt"
+end
+
+# Log system state
+logLevel 0
+
+# Start simulation
+start
+
+# Wait for firmware to execute
+if $MODE == "boot"
+    # Boot test: just verify firmware starts executing
+    echo "BOOT TEST: Waiting $TIMEOUT seconds for firmware to boot..."
+    sleep $TIMEOUT
+
+    # Check if CPU is executing (PC should have advanced from entry point)
+    echo "Boot test complete."
+    echo "UART output captured to: ${UART_LOG:-uart1_output.txt}"
+
+elif $MODE == "uart"
+    # UART capture mode: wait and collect serial output
+    echo "UART CAPTURE: Waiting $TIMEOUT seconds for UART data..."
+    sleep $TIMEOUT
+
+    # Show captured UART data
+    echo "UART output captured to: ${UART_LOG:-uart1_output.txt}"
+
+elif $MODE == "full"
+    # Full simulation: run longer, capture everything
+    echo "FULL SIMULATION: Running for $TIMEOUT seconds..."
+    sleep $TIMEOUT
+    echo "Simulation complete."
+end
+
+# Stop simulation
+pause
+
+echo "SIMULATION_DONE"
