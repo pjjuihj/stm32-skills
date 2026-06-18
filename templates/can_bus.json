@@ -1,0 +1,35 @@
+{
+  "name": "CAN 总线配置",
+  "description": "CAN 总线通信配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["CAN1", "GPIO"],
+  "pins": [
+    {"pin": "PA11", "signal": "CAN1_RX", "mode": "CAN1"},
+    {"pin": "PA12", "signal": "CAN1_TX", "mode": "CAN1"}
+  ],
+  "config": {
+    "CAN1": {
+      "Mode": "CAN_MODE_NORMAL",
+      "TimeSeg1": "CAN_BS1_6TQ",
+      "TimeSeg2": "CAN_BS2_8TQ",
+      "SyncJumpWidth": "CAN_SJW_1TQ",
+      "Prescaler": "5"
+    }
+  },
+  "can": {
+    "baudrate": "500kbps",
+    "frame_format": "Standard / Extended",
+    "max_data_length": "8 bytes",
+    "filter_count": "14 (dual CAN)",
+    "features": ["Remote frame", "Error frame", "Overload frame"]
+  },
+  "nvic": {
+    "CAN1_RX0_IRQn": {"priority": 5, "enabled": true},
+    "CAN1_RX1_IRQn": {"priority": 5, "enabled": true},
+    "CAN1_TX_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

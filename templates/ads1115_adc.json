@@ -1,0 +1,33 @@
+{
+  "name": "ADS1115 高精度 ADC 配置",
+  "description": "ADS1115 16位 I2C ADC 配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PA0", "signal": "GPIO_Input", "label": "ADS_ALERT"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "ADS1115",
+    "resolution": "16-bit",
+    "channels": 4,
+    "sample_rate": "8-860 sps",
+    "programmable_gain": "2/3x to 16x",
+    "i2c_address": "0x48-0x4B",
+    "interface": "I2C"
+  },
+  "nvic": {
+    "EXTI0_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

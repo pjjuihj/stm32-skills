@@ -1,0 +1,52 @@
+{
+  "name": "传感器数据记录器",
+  "description": "多通道 ADC + DMA + SD 卡 + 串口输出",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["ADC1", "DMA", "USART1", "SPI1", "TIM6"],
+  "pins": [
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "SENSOR_1"},
+    {"pin": "PA1", "signal": "ADC1_IN1", "mode": "ADC1_IN1", "label": "SENSOR_2"},
+    {"pin": "PA2", "signal": "ADC1_IN2", "mode": "ADC1_IN2", "label": "SENSOR_3"},
+    {"pin": "PA3", "signal": "ADC1_IN3", "mode": "ADC1_IN3", "label": "SENSOR_4"},
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous"},
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA6", "signal": "SPI1_MISO", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "SD_CS"}
+  ],
+  "config": {
+    "ADC1": {
+      "ScanConvMode": "ENABLE",
+      "ContinuousConvMode": "ENABLE",
+      "ExternalTrigConv": "ADC_EXTERNALTRIGCONV_T6_TRGO",
+      "DataAlign": "ADC_DATAALIGN_RIGHT",
+      "NbrOfConversion": "4",
+      "DMAContinuousRequests": "ENABLE"
+    },
+    "USART1": {
+      "BaudRate": 115200,
+      "VirtualMode": "VM_ASYNC"
+    },
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_2LINES",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE"
+    },
+    "TIM6": {
+      "Prescaler": "8400-1",
+      "Period": "10000-1",
+      "TriggerOutput": "TIM_TRGO_UPDATE"
+    }
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true},
+    "DMA2_Stream0_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

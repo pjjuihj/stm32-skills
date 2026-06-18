@@ -1,0 +1,30 @@
+{
+  "name": "基础 GPIO 配置",
+  "description": "LED 输出 + 按键输入",
+  "mcu": "STM32F407VETx",
+  "pins": [
+    {
+      "pin": "PA8",
+      "signal": "GPIO_Output",
+      "mode": "GPIO_Output",
+      "label": "LED",
+      "gpio_params": {
+        "GPIO_ModeDefaultOutputPP": "GPIO_MODE_OUTPUT_PP",
+        "GPIO_PuPd": "GPIO_PULLDOWN",
+        "GPIO_Speed": "GPIO_SPEED_FREQ_HIGH"
+      }
+    },
+    {
+      "pin": "PA0",
+      "signal": "GPXTI0",
+      "mode": "GPIO_EXTI0",
+      "label": "BTN",
+      "gpio_params": {
+        "GPIO_PuPd": "GPIO_NOPULL"
+      }
+    }
+  ],
+  "nvic": {
+    "EXTI0_IRQn": {"priority": 6, "enabled": true}
+  }
+}

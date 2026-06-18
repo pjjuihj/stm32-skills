@@ -1,0 +1,29 @@
+{
+  "name": "按键矩阵配置",
+  "description": "4x4 按键矩阵配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "ROW_1"},
+    {"pin": "PA1", "signal": "GPIO_Output", "label": "ROW_2"},
+    {"pin": "PA2", "signal": "GPIO_Output", "label": "ROW_3"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "ROW_4"},
+    {"pin": "PB0", "signal": "GPIO_Input", "label": "COL_1"},
+    {"pin": "PB1", "signal": "GPIO_Input", "label": "COL_2"},
+    {"pin": "PB2", "signal": "GPIO_Input", "label": "COL_3"},
+    {"pin": "PB10", "signal": "GPIO_Input", "label": "COL_4"}
+  ],
+  "config": {},
+  "matrix": {
+    "rows": 4,
+    "columns": 4,
+    "total_keys": 16,
+    "scan_method": "Row-Column",
+    "debounce_time": "20ms"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

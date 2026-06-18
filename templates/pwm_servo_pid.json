@@ -1,0 +1,36 @@
+{
+  "name": "PWM 舵机 PID 控制配置",
+  "description": "PWM 舵机 PID 闭环控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM3", "ADC1"],
+  "pins": [
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "SERVO_PWM"},
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "POSITION_FB"}
+  ],
+  "config": {
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Pulse-PWM Generation1 CH1": "1500"
+    },
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "DISABLE",
+      "ContinuousConvMode": "ENABLE",
+      "ExternalTrigConv": "ADC_SOFTWARE_START",
+      "DataAlign": "ADC_DATAALIGN_RIGHT"
+    }
+  },
+  "servo": {
+    "type": "Servo with PID Control",
+    "feedback": "Potentiometer / Encoder",
+    "pid": {"kp": 1.0, "ki": 0.1, "kd": 0.01},
+    "position_range": "0-180°"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

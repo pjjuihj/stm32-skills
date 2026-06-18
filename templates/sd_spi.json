@@ -1,0 +1,35 @@
+{
+  "name": "SD 卡 SPI 配置",
+  "description": "SD 卡 SPI 模式配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI1", "GPIO"],
+  "pins": [
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA6", "signal": "SPI1_MISO", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "SD_CS"},
+    {"pin": "PA3", "signal": "GPIO_Input", "label": "SD_DETECT"}
+  ],
+  "config": {
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_2LINES",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE",
+      "BaudRatePrescaler": "SPI_BAUDRATEPRESCALER_256"
+    }
+  },
+  "sd": {
+    "type": "SD / SDHC / SDXC",
+    "capacity": "1GB - 2TB",
+    "interface": "SPI",
+    "max_speed": "25MHz (SPI)",
+    "filesystem": "FAT12/FAT16/FAT32"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "DMA I2C 配置",
+  "description": "DMA 方式 I2C 通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1", "DMA"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    },
+    "DMA1_Stream0": {
+      "Channel": "DMA_CHANNEL_1",
+      "Direction": "DMA_PERIPH_TO_MEMORY",
+      "Mode": "DMA_NORMAL",
+      "Priority": "DMA_PRIORITY_HIGH"
+    },
+    "DMA1_Stream6": {
+      "Channel": "DMA_CHANNEL_1",
+      "Direction": "DMA_MEMORY_TO_PERIPH",
+      "Mode": "DMA_NORMAL",
+      "Priority": "DMA_PRIORITY_LOW"
+    }
+  },
+  "nvic": {
+    "I2C1_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_ER_IRQn": {"priority": 5, "enabled": true},
+    "DMA1_Stream0_IRQn": {"priority": 6, "enabled": true},
+    "DMA1_Stream6_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

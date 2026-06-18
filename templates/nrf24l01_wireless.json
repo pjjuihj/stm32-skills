@@ -1,0 +1,38 @@
+{
+  "name": "NRF24L01 无线通信",
+  "description": "NRF24L01 2.4GHz 无线通信模块",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI1", "GPIO"],
+  "pins": [
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA6", "signal": "SPI1_MISO", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "NRF_CSN"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "NRF_CE"},
+    {"pin": "PA2", "signal": "GPIO_Input", "label": "NRF_IRQ"}
+  ],
+  "config": {
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_2LINES",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE",
+      "BaudRatePrescaler": "SPI_BAUDRATEPRESCALER_16"
+    }
+  },
+  "wireless": {
+    "frequency": "2.4GHz",
+    "data_rate": "250kbps/1Mbps/2Mbps",
+    "power": "-18dBm to 0dBm",
+    "channels": 128,
+    "payload_size": "1-32 bytes"
+  },
+  "nvic": {
+    "EXTI2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

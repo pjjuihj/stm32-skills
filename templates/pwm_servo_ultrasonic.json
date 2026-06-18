@@ -1,0 +1,40 @@
+{
+  "name": "PWM 舵机超声波控制配置",
+  "description": "PWM 舵机超声波传感器控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "TIM3", "GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "TRIG"},
+    {"pin": "PA1", "signal": "TIM2_CH2", "mode": "Input_Capture", "label": "ECHO"},
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "SERVO_1"},
+    {"pin": "PA7", "signal": "TIM3_CH2", "mode": "PWM Generation2 CH2", "label": "SERVO_2"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "65535",
+      "IC2Polarity": "TIM_ICPOLARITY_RISING"
+    },
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Pulse-PWM Generation1 CH1": "1500",
+      "Pulse-PWM Generation2 CH2": "1500"
+    }
+  },
+  "servo": {
+    "type": "Ultrasonic Control Servo",
+    "ultrasonic": "HC-SR04",
+    "channels": 2,
+    "features": ["Distance-based control", "Obstacle avoidance"]
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

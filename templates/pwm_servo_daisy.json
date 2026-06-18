@@ -1,0 +1,34 @@
+{
+  "name": "PWM 舵机菊花链控制配置",
+  "description": "PWM 舵机菊花链控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI1", "GPIO"],
+  "pins": [
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "SERVO_CS"}
+  ],
+  "config": {
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_1LINE",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE",
+      "BaudRatePrescaler": "SPI_BAUDRATEPRESCALER_16"
+    }
+  },
+  "servo": {
+    "type": "Daisy-chain Servo Control",
+    "controller": "STP16CPC26",
+    "channels_per_ic": 16,
+    "cascade_ics": 4,
+    "total_channels": 64,
+    "interface": "SPI"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

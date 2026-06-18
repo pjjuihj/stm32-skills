@@ -1,0 +1,29 @@
+{
+  "name": "LCD1602 I2C 配置",
+  "description": "LCD1602 I2C 液晶显示配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 100000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "display": {
+    "type": "LCD1602",
+    "characters": "16x2",
+    "backlight": true,
+    "i2c_adapter": "PCF8574",
+    "i2c_address": "0x27 / 0x3F",
+    "interface": "I2C"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

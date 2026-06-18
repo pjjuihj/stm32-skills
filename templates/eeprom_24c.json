@@ -1,0 +1,30 @@
+{
+  "name": "EEPROM 24C 配置",
+  "description": "24C 系列 I2C EEPROM 配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "eeprom": {
+    "type": "24C02 / 24C04 / 24C08 / 24C16 / 24C256",
+    "capacity": "256B - 256KB",
+    "page_size": "8-64 bytes",
+    "write_cycles": "1,000,000",
+    "data_retention": "100 years",
+    "i2c_address": "0x50-0x57",
+    "interface": "I2C"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

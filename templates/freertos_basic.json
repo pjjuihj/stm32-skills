@@ -1,0 +1,18 @@
+{
+  "name": "FreeRTOS 基础配置",
+  "description": "CMSIS-RTOS v2 + 基础任务",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["FREERTOS"],
+  "freertos": {
+    "configTOTAL_HEAP_SIZE": 16384,
+    "configCHECK_FOR_STACK_OVERFLOW": 2,
+    "tasks": [
+      {"name": "DefaultTask", "priority": 24, "stack_size": 128, "entry_function": "StartDefaultTask"},
+      {"name": "SensorTask", "priority": 40, "stack_size": 256, "entry_function": "StartSensorTask"},
+      {"name": "DisplayTask", "priority": 8, "stack_size": 256, "entry_function": "StartDisplayTask"}
+    ]
+  },
+  "virtual_pins": [
+    {"name": "VP_FREERTOS_VS_CMSIS_V2", "mode": "CMSIS_V2", "signal": "FREERTOS_VS_CMSIS_V2"}
+  ]
+}

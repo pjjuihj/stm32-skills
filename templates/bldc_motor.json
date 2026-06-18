@@ -1,0 +1,48 @@
+{
+  "name": "无刷电机控制",
+  "description": "BLDC 无刷直流电机控制",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM1", "TIM2", "GPIO"],
+  "pins": [
+    {"pin": "PA8", "signal": "TIM1_CH1", "mode": "PWM Generation1 CH1", "label": "PWM_A"},
+    {"pin": "PA9", "signal": "TIM1_CH2", "mode": "PWM Generation2 CH2", "label": "PWM_B"},
+    {"pin": "PA10", "signal": "TIM1_CH3", "mode": "PWM Generation3 CH3", "label": "PWM_C"},
+    {"pin": "PB0", "signal": "GPIO_Output", "label": "EN_A"},
+    {"pin": "PB1", "signal": "GPIO_Output", "label": "EN_B"},
+    {"pin": "PB2", "signal": "GPIO_Output", "label": "EN_C"},
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "CURR_A"},
+    {"pin": "PA1", "signal": "ADC1_IN1", "mode": "ADC1_IN1", "label": "CURR_B"},
+    {"pin": "PA2", "signal": "TIM2_CH3", "mode": "Input_Capture", "label": "HALL_A"},
+    {"pin": "PA3", "signal": "TIM2_CH4", "mode": "Input_Capture", "label": "HALL_B"}
+  ],
+  "config": {
+    "TIM1": {
+      "Prescaler": "0",
+      "Period": "4200-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Channel-PWM Generation3 CH3": "TIM_CHANNEL_3",
+      "Pulse-PWM Generation1 CH1": "2100",
+      "Pulse-PWM Generation2 CH2": "2100",
+      "Pulse-PWM Generation3 CH3": "2100"
+    },
+    "TIM2": {
+      "Prescaler": "0",
+      "Period": "65535"
+    }
+  },
+  "motor": {
+    "type": "BLDC",
+    "poles": 4,
+    "max_rpm": 10000,
+    "control_method": "FOC / Six-step"
+  },
+  "nvic": {
+    "TIM1_UP_TIM10_IRQn": {"priority": 5, "enabled": true},
+    "TIM2_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

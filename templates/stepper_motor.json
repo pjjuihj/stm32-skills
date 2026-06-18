@@ -1,0 +1,33 @@
+{
+  "name": "步进电机配置",
+  "description": "步进电机控制",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "TIM2_CH1_ETR", "mode": "PWM Generation1 CH1", "label": "STEP"},
+    {"pin": "PA1", "signal": "GPIO_Output", "label": "DIR"},
+    {"pin": "PA2", "signal": "GPIO_Output", "label": "ENABLE"},
+    {"pin": "PA3", "signal": "GPIO_Input", "label": "LIMIT_SWITCH"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Pulse-PWM Generation1 CH1": "500"
+    }
+  },
+  "motor": {
+    "steps_per_revolution": 200,
+    "max_speed_rpm": 300,
+    "acceleration": 100,
+    "microstepping": 1
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

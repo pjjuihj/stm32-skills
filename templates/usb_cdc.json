@@ -1,0 +1,26 @@
+{
+  "name": "USB CDC 虚拟串口配置",
+  "description": "USB CDC 虚拟串口",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USB_OTG_FS", "GPIO"],
+  "pins": [
+    {"pin": "PA11", "signal": "USB_OTG_FS_DM", "mode": "USB_OTG_FS"},
+    {"pin": "PA12", "signal": "USB_OTG_FS_DP", "mode": "USB_OTG_FS"},
+    {"pin": "PA9", "signal": "GPIO_Output", "label": "USB_VBUS"},
+    {"pin": "PA10", "signal": "GPIO_Input", "label": "USB_ID"}
+  ],
+  "config": {
+    "USB_OTG_FS": {
+      "Mode": "DEVICE_VBUS",
+      "Speed": "USB_OTG_FS_SPEED",
+      "SofOutput": "DISABLE"
+    }
+  },
+  "nvic": {
+    "OTG_FS_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

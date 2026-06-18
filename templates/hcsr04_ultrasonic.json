@@ -1,0 +1,31 @@
+{
+  "name": "HC-SR04 超声波传感器",
+  "description": "HC-SR04 超声波测距传感器",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["GPIO", "TIM2"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "TRIG"},
+    {"pin": "PA1", "signal": "TIM2_CH2", "mode": "Input_Capture", "label": "ECHO"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "65535",
+      "IC2Polarity": "TIM_ICPOLARITY_RISING"
+    }
+  },
+  "sensor": {
+    "type": "HC-SR04",
+    "measurements": ["distance"],
+    "range": {"distance": "2cm - 400cm"},
+    "accuracy": {"distance": "±3mm"},
+    "trigger_pulse": "10us"
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

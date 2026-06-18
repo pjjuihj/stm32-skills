@@ -1,0 +1,31 @@
+{
+  "name": "BMP280 气压传感器",
+  "description": "BMP280 气压温度传感器 I2C 通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "BMP280",
+    "measurements": ["pressure", "temperature", "altitude"],
+    "range": {"pressure": "300-1100hPa", "temperature": "-40°C to +85°C"},
+    "accuracy": {"pressure": "±1hPa", "temperature": "±1°C"},
+    "i2c_address": "0x76 or 0x77"
+  },
+  "nvic": {
+    "I2C1_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_ER_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

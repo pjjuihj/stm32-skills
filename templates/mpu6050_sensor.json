@@ -1,0 +1,31 @@
+{
+  "name": "MPU6050 六轴传感器",
+  "description": "MPU6050 加速度陀螺仪传感器 I2C 通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "MPU6050",
+    "measurements": ["accel_x", "accel_y", "accel_z", "gyro_x", "gyro_y", "gyro_z", "temperature"],
+    "range": {"accel": "±2/4/8/16g", "gyro": "±250/500/1000/2000°/s"},
+    "i2c_address": "0x68 or 0x69",
+    "features": ["DMP", "FIFO", "interrupt"]
+  },
+  "nvic": {
+    "I2C1_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_ER_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

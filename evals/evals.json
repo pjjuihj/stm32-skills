@@ -1,0 +1,35 @@
+{
+  "skill_name": "stm32-keil-workflow",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我有一个 STM32F407 的 Keil 项目，编译时出现 'FreeRTOSConfig.h' file not found 错误，请帮我修复",
+      "expected_output": "应该创建 FreeRTOSConfig.h 文件或指导用户如何配置 FreeRTOS",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "我想为 STM32F407 配置一个串口示波器和信号发生器，使用 CubeMX 自动生成配置",
+      "expected_output": "应该使用 cubemx_config.py 脚本配置 ADC、DAC、USART、定时器等外设",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "我的 STM32 项目需要添加 USB DFU 烧录功能，这样我可以不用 ST-LINK 就能更新固件",
+      "expected_output": "应该创建 bootloader 模块并配置 USB DFU 跳转功能",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "帮我分析一下这个 STM32 项目的 ELF 文件，检查中断向量表和栈堆配置是否正确",
+      "expected_output": "应该运行 check_elf.py 和 debug_sim.py 进行静态分析",
+      "files": []
+    },
+    {
+      "id": 5,
+      "prompt": "我想优化 STM32 固件的 Flash 和 RAM 使用率，看看有哪些大函数可以优化",
+      "expected_output": "应该运行 optimize.py 分析资源使用率并提供优化建议",
+      "files": []
+    }
+  ]
+}

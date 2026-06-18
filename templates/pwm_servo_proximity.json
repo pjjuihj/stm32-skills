@@ -1,0 +1,40 @@
+{
+  "name": "PWM 舵机接近检测控制配置",
+  "description": "PWM 舵机接近传感器控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1", "TIM3"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PA0", "signal": "GPIO_Input", "label": "PROX_INT"},
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "SERVO_1"},
+    {"pin": "PA7", "signal": "TIM3_CH2", "mode": "PWM Generation2 CH2", "label": "SERVO_2"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    },
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Pulse-PWM Generation1 CH1": "1500",
+      "Pulse-PWM Generation2 CH2": "1500"
+    }
+  },
+  "servo": {
+    "type": "Proximity Control Servo",
+    "proximity_sensor": "APDS9960/VL53L0X",
+    "channels": 2,
+    "features": ["Proximity detection", "Auto-open"]
+  },
+  "nvic": {
+    "EXTI0_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

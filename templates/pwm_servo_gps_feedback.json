@@ -1,0 +1,43 @@
+{
+  "name": "PWM 舵机 GPS 反馈控制配置",
+  "description": "PWM 舵机 GPS 定位反馈控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "TIM3"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous", "label": "GPS_TX"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous", "label": "GPS_RX"},
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "SERVO_PAN"},
+    {"pin": "PA7", "signal": "TIM3_CH2", "mode": "PWM Generation2 CH2", "label": "SERVO_TILT"}
+  ],
+  "config": {
+    "USART1": {
+      "BaudRate": 9600,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    },
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Pulse-PWM Generation1 CH1": "1500",
+      "Pulse-PWM Generation2 CH2": "1500"
+    }
+  },
+  "servo": {
+    "type": "GPS Feedback Servo",
+    "gps": "NEO-6M/NEO-M8N",
+    "channels": 2,
+    "control": "GPS Tracking",
+    "features": ["Auto-pointing", "Waypoint tracking"]
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

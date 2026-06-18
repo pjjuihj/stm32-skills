@@ -1,0 +1,30 @@
+{
+  "name": "PCF8574 IO 扩展配置",
+  "description": "PCF8574 I2C IO 扩展器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "expander": {
+    "type": "PCF8574 / PCF8574A",
+    "io_pins": 8,
+    "i2c_address": "0x20-0x27 (PCF8574) / 0x38-0x3F (PCF8574A)",
+    "interface": "I2C",
+    "interrupt": "Active Low"
+  },
+  "nvic": {
+    "EXTI0_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

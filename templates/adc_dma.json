@@ -1,0 +1,22 @@
+{
+  "name": "ADC DMA 采集配置",
+  "description": "ADC1 单通道 + DMA 传输",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["ADC1", "DMA"],
+  "pins": [
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0"}
+  ],
+  "config": {
+    "ADC1": {
+      "ScanConvMode": "DISABLE",
+      "ContinuousConvMode": "ENABLE",
+      "ExternalTrigConv": "ADC_SOFTWARE_START",
+      "DataAlign": "ADC_DATAALIGN_RIGHT",
+      "NbrOfConversion": "1"
+    }
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

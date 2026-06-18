@@ -1,0 +1,47 @@
+{
+  "name": "PWM 舵机 RFID 控制配置",
+  "description": "PWM 舵机 RFID 控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI1", "TIM3", "GPIO"],
+  "pins": [
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA6", "signal": "SPI1_MISO", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "RFID_CS"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "RFID_RST"},
+    {"pin": "PA2", "signal": "GPIO_Input", "label": "RFID_IRQ"},
+    {"pin": "PB0", "signal": "TIM3_CH3", "mode": "PWM Generation3 CH3", "label": "SERVO_1"},
+    {"pin": "PB1", "signal": "TIM3_CH4", "mode": "PWM Generation4 CH4", "label": "SERVO_2"}
+  ],
+  "config": {
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_2LINES",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE",
+      "BaudRatePrescaler": "SPI_BAUDRATEPRESCALER_16"
+    },
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation3 CH3": "TIM_CHANNEL_3",
+      "Channel-PWM Generation4 CH4": "TIM_CHANNEL_4",
+      "Pulse-PWM Generation3 CH3": "1500",
+      "Pulse-PWM Generation4 CH4": "1500"
+    }
+  },
+  "servo": {
+    "type": "RFID Control Servo",
+    "rfid": "MFRC522",
+    "channels": 2,
+    "features": ["Card access", "Auto-open"]
+  },
+  "nvic": {
+    "EXTI2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

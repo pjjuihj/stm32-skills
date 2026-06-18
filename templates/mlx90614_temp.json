@@ -1,0 +1,30 @@
+{
+  "name": "MLX90614 红外测温配置",
+  "description": "MLX90614 非接触式红外测温传感器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 100000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "MLX90614",
+    "measurements": ["Object Temperature", "Ambient Temperature"],
+    "range": "-70°C to +380°C",
+    "accuracy": "±0.5°C",
+    "resolution": "0.02°C",
+    "i2c_address": "0x5A",
+    "interface": "I2C (SMBus)"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "name": "AM2302 温湿度传感器配置",
+  "description": "AM2302 (DHT22) 温湿度传感器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["GPIO", "TIM2"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "AM2302_DATA"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "65535"
+    }
+  },
+  "sensor": {
+    "type": "AM2302 (DHT22)",
+    "measurements": ["temperature", "humidity"],
+    "range": {"temperature": "-40°C to +80°C", "humidity": "0-100%RH"},
+    "accuracy": {"temperature": "±0.5°C", "humidity": "±2%RH"},
+    "resolution": "0.1°C / 0.1%RH"
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

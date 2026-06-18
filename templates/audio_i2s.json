@@ -1,0 +1,40 @@
+{
+  "name": "I2S 音频配置",
+  "description": "I2S 数字音频接口配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI2", "I2C1", "GPIO"],
+  "pins": [
+    {"pin": "PB13", "signal": "SPI2_SCK", "mode": "Full_Duplex_Master", "label": "I2S_CK"},
+    {"pin": "PB15", "signal": "SPI2_MOSI", "mode": "Full_Duplex_Master", "label": "I2S_SD"},
+    {"pin": "PB12", "signal": "GPIO_Output", "label": "I2S_WS"},
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C", "label": "CODEC_SCL"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C", "label": "CODEC_SDA"}
+  ],
+  "config": {
+    "SPI2": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_1LINE",
+      "DataSize": "SPI_DATASIZE_16BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE"
+    },
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "audio": {
+    "interface": "I2S",
+    "codec": "WM8978 / CS4344 / PCM5102",
+    "sample_rate": "8000-192000Hz",
+    "bit_depth": "16/24/32-bit",
+    "channels": "Stereo"
+  },
+  "nvic": {
+    "SPI2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

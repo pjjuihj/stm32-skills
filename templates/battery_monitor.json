@@ -1,0 +1,36 @@
+{
+  "name": "电池监测配置",
+  "description": "锂电池电压和电流监测",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["ADC1", "I2C1"],
+  "pins": [
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "VBAT"},
+    {"pin": "PA1", "signal": "ADC1_IN1", "mode": "ADC1_IN1", "label": "CURRENT"},
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "ENABLE",
+      "ContinuousConvMode": "ENABLE",
+      "NbrOfConversion": "2"
+    },
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "battery": {
+    "type": "Li-ion / LiPo",
+    "cells": "1S-4S",
+    "voltage_range": "3.0V-4.2V per cell",
+    "current_sensor": "ACS712 / INA219",
+    "fuel_gauge": "BQ27441 / MAX17043"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "PCA9685 PWM 控制器配置",
+  "description": "PCA9685 16路 PWM 控制器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "pwm": {
+    "type": "PCA9685",
+    "channels": 16,
+    "resolution": "12-bit",
+    "frequency": "24Hz-1526Hz",
+    "i2c_address": "0x40-0x7F",
+    "interface": "I2C",
+    "features": ["Totem-pole output", "Open-drain output"]
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

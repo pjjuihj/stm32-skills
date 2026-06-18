@@ -1,0 +1,24 @@
+{
+  "name": "PWM 电机控制配置",
+  "description": "TIM3 双通道 PWM 输出",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM3"],
+  "pins": [
+    {"pin": "PA6", "signal": "S_TIM3_CH1", "mode": "PWM Generation1 CH1"},
+    {"pin": "PA7", "signal": "S_TIM3_CH2", "mode": "PWM Generation2 CH2"}
+  ],
+  "config": {
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Pulse-PWM Generation1 CH1": "1500",
+      "Pulse-PWM Generation2 CH2": "1500"
+    }
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

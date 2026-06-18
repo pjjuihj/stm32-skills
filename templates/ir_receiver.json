@@ -1,0 +1,31 @@
+{
+  "name": "红外接收器配置",
+  "description": "VS1838B 红外接收器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "TIM2_CH1_ETR", "mode": "Input_Capture", "label": "IR_RX"},
+    {"pin": "PA1", "signal": "GPIO_Output", "label": "IR_TX"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "65535",
+      "IC1Polarity": "TIM_ICPOLARITY_BOTHEDGE"
+    }
+  },
+  "ir": {
+    "receiver": "VS1838B",
+    "protocols": ["NEC", "RC5", "RC6", "Sony"],
+    "carrier_frequency": "38kHz",
+    "range": "5-10m",
+    "interface": "GPIO Interrupt / Timer Capture"
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

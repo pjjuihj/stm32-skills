@@ -1,0 +1,32 @@
+{
+  "name": "MCP23017 IO 扩展配置",
+  "description": "MCP23017 16位 I2C IO 扩展器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "expander": {
+    "type": "MCP23017",
+    "io_pins": 16,
+    "ports": ["GPA0-GPA7", "GPB0-GPB7"],
+    "i2c_address": "0x20-0x27",
+    "interface": "I2C",
+    "interrupt": "Active Low (INTA, INTB)"
+  },
+  "nvic": {
+    "EXTI0_IRQn": {"priority": 5, "enabled": true},
+    "EXTI1_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

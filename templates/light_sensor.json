@@ -1,0 +1,35 @@
+{
+  "name": "光照传感器配置",
+  "description": "BH1750/TEMT6000 光照传感器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1", "ADC1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "LIGHT_ANALOG"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    },
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "DISABLE",
+      "ContinuousConvMode": "ENABLE",
+      "ExternalTrigConv": "ADC_SOFTWARE_START",
+      "DataAlign": "ADC_DATAALIGN_RIGHT"
+    }
+  },
+  "sensor": {
+    "type": "BH1750 / TEMT6000",
+    "range": "1-65535 lux (BH1750)",
+    "resolution": "16-bit (BH1750)",
+    "interface": "I2C (BH1750) / Analog (TEMT6000)"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

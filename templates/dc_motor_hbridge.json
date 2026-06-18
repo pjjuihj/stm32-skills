@@ -1,0 +1,37 @@
+{
+  "name": "直流电机 H 桥控制",
+  "description": "L298N/TB6612 H 桥直流电机控制",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM3", "GPIO"],
+  "pins": [
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "PWM_A"},
+    {"pin": "PA7", "signal": "TIM3_CH2", "mode": "PWM Generation2 CH2", "label": "PWM_B"},
+    {"pin": "PB0", "signal": "GPIO_Output", "label": "DIR_A1"},
+    {"pin": "PB1", "signal": "GPIO_Output", "label": "DIR_A2"},
+    {"pin": "PB2", "signal": "GPIO_Output", "label": "DIR_B1"},
+    {"pin": "PB10", "signal": "GPIO_Output", "label": "DIR_B2"},
+    {"pin": "PB11", "signal": "GPIO_Output", "label": "STBY"}
+  ],
+  "config": {
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Pulse-PWM Generation1 CH1": "0",
+      "Pulse-PWM Generation2 CH2": "0"
+    }
+  },
+  "motor": {
+    "type": "DC Motor",
+    "driver": "L298N / TB6612",
+    "max_voltage": "12V",
+    "max_current": "2A",
+    "pwm_frequency": "1-20kHz"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

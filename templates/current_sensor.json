@@ -1,0 +1,35 @@
+{
+  "name": "电流传感器配置",
+  "description": "ACS712/INA219 电流传感器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["ADC1", "I2C1"],
+  "pins": [
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "CURRENT_SENSE"},
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "DISABLE",
+      "ContinuousConvMode": "ENABLE",
+      "ExternalTrigConv": "ADC_SOFTWARE_START",
+      "DataAlign": "ADC_DATAALIGN_RIGHT"
+    },
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "ACS712 / INA219",
+    "range": "±5A / ±20A / ±30A (ACS712)",
+    "sensitivity": "185mV/A (ACS712 5A)",
+    "interface": "Analog (ACS712) / I2C (INA219)"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

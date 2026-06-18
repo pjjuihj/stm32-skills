@@ -1,0 +1,36 @@
+{
+  "name": "RS485 Modbus 配置",
+  "description": "RS485 Modbus RTU 通信配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "GPIO"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous", "label": "RS485_TX"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous", "label": "RS485_RX"},
+    {"pin": "PB0", "signal": "GPIO_Output", "label": "RS485_DE"}
+  ],
+  "config": {
+    "USART1": {
+      "BaudRate": 9600,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    }
+  },
+  "modbus": {
+    "mode": "RTU",
+    "baudrate": "9600/19200/115200",
+    "data_bits": 8,
+    "stop_bits": 1,
+    "parity": "None/Even/Odd",
+    "slave_address": "1-247",
+    "function_codes": ["01", "02", "03", "04", "05", "06", "15", "16"]
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

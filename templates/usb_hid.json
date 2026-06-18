@@ -1,0 +1,30 @@
+{
+  "name": "USB HID 配置",
+  "description": "USB HID 设备配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USB_OTG_FS"],
+  "pins": [
+    {"pin": "PA11", "signal": "USB_OTG_FS_DM", "mode": "USB_OTG_FS"},
+    {"pin": "PA12", "signal": "USB_OTG_FS_DP", "mode": "USB_OTG_FS"}
+  ],
+  "config": {
+    "USB_OTG_FS": {
+      "Mode": "DEVICE_VBUS",
+      "Speed": "USB_OTG_FS_SPEED"
+    }
+  },
+  "hid": {
+    "type": "HID",
+    "devices": ["Keyboard", "Mouse", "Gamepad", "Custom"],
+    "report_size": "64 bytes",
+    "polling_rate": "1-1000Hz",
+    "interface": "USB"
+  },
+  "nvic": {
+    "OTG_FS_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

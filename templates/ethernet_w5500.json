@@ -1,0 +1,38 @@
+{
+  "name": "W5500 以太网配置",
+  "description": "W5500 SPI 以太网模块配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI1", "GPIO"],
+  "pins": [
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA6", "signal": "SPI1_MISO", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "W5500_CS"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "W5500_RST"},
+    {"pin": "PA2", "signal": "GPIO_Input", "label": "W5500_INT"}
+  ],
+  "config": {
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_2LINES",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE",
+      "BaudRatePrescaler": "SPI_BAUDRATEPRESCALER_4"
+    }
+  },
+  "ethernet": {
+    "type": "W5500",
+    "speed": "10/100Mbps",
+    "sockets": 8,
+    "protocol": ["TCP", "UDP", "ICMP", "ARP"],
+    "interface": "SPI"
+  },
+  "nvic": {
+    "EXTI2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

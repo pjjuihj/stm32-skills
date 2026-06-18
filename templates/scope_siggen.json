@@ -1,0 +1,59 @@
+{
+  "name": "串口示波器 + 信号发生器",
+  "description": "ADC 采集 + DAC 输出 + 串口通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["ADC1", "DAC", "USART2", "I2C1", "TIM5", "TIM9"],
+  "pins": [
+    {"pin": "PA6", "signal": "ADC1_IN6", "mode": "ADC1_IN6", "label": "SCOPE_IN"},
+    {"pin": "PA4", "signal": "DAC_OUT1", "mode": "DAC_OUT1", "label": "SIGGEN_OUT"},
+    {"pin": "PA2", "signal": "USART2_TX", "mode": "Asynchronous"},
+    {"pin": "PA3", "signal": "USART2_RX", "mode": "Asynchronous"},
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PA8", "signal": "GPIO_Output", "label": "LED"}
+  ],
+  "config": {
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "DISABLE",
+      "ContinuousConvMode": "DISABLE",
+      "ExternalTrigConv": "ADC_EXTERNALTRIGCONV_T9_TRGO",
+      "DataAlign": "ADC_DATAALIGN_RIGHT",
+      "NbrOfConversion": "1"
+    },
+    "DAC": {
+      "Trigger": "DAC_TRIGGER_T5_TRGO",
+      "OutputBuffer": "DAC_OUTPUTBUFFER_ENABLE"
+    },
+    "USART2": {
+      "BaudRate": 115200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    },
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    },
+    "TIM5": {
+      "Prescaler": "84-1",
+      "Period": "2000-1",
+      "TriggerOutput": "TIM_TRGO_UPDATE"
+    },
+    "TIM9": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "TriggerOutput": "TIM_TRGO_UPDATE"
+    }
+  },
+  "nvic": {
+    "TIM5_IRQn": {"priority": 6, "enabled": true},
+    "TIM1_BRK_TIM9_IRQn": {"priority": 6, "enabled": true},
+    "USART2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

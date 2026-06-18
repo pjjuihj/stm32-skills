@@ -1,0 +1,40 @@
+{
+  "name": "串口协议解析器",
+  "description": "自定义串口协议解析",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "USART2"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous", "label": "PROTO_TX"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous", "label": "PROTO_RX"},
+    {"pin": "PA2", "signal": "USART2_TX", "mode": "Asynchronous", "label": "DEBUG_TX"},
+    {"pin": "PA3", "signal": "USART2_RX", "mode": "Asynchronous", "label": "DEBUG_RX"}
+  ],
+  "config": {
+    "USART1": {
+      "BaudRate": 115200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    },
+    "USART2": {
+      "BaudRate": 115200,
+      "VirtualMode": "VM_ASYNC"
+    }
+  },
+  "protocol": {
+    "frame_header": "0xAA 0x55",
+    "frame_tail": "0x55 0xAA",
+    "cmd_length": 1,
+    "data_length": 2,
+    "checksum": "XOR"
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true},
+    "USART2_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

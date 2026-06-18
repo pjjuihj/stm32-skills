@@ -1,0 +1,33 @@
+{
+  "name": "MAX30102 心率血氧配置",
+  "description": "MAX30102 心率血氧传感器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PA0", "signal": "GPIO_Input", "label": "MAX_INT"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "MAX30102",
+    "measurements": ["Heart Rate", "SpO2"],
+    "led": ["Red", "IR"],
+    "resolution": "18-bit",
+    "sample_rate": "50-3200 sps",
+    "i2c_address": "0x57",
+    "interface": "I2C"
+  },
+  "nvic": {
+    "EXTI0_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

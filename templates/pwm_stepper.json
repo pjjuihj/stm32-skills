@@ -1,0 +1,34 @@
+{
+  "name": "PWM 步进电机配置",
+  "description": "PWM 步进电机速度控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "TIM2_CH1_ETR", "mode": "PWM Generation1 CH1", "label": "STEP"},
+    {"pin": "PA1", "signal": "GPIO_Output", "label": "DIR"},
+    {"pin": "PA2", "signal": "GPIO_Output", "label": "ENABLE"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "M0"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "M1"},
+    {"pin": "PA5", "signal": "GPIO_Output", "label": "M2"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Pulse-PWM Generation1 CH1": "500"
+    }
+  },
+  "stepper": {
+    "type": "Stepper Motor",
+    "driver": "A4988 / DRV8825 / TMC2209",
+    "microstepping": "1/1 to 1/32",
+    "max_speed": "1000 rpm",
+    "acceleration": "configurable"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

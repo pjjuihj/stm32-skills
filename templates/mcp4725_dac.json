@@ -1,0 +1,31 @@
+{
+  "name": "MCP4725 高精度 DAC 配置",
+  "description": "MCP4725 12位 I2C DAC 配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "MCP4725",
+    "resolution": "12-bit",
+    "channels": 1,
+    "output_voltage": "0-VDD",
+    "settling_time": "6µs",
+    "i2c_address": "0x60 / 0x62",
+    "interface": "I2C",
+    "features": ["EEPROM", "Power-Down"]
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

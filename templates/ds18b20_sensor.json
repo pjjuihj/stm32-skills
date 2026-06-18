@@ -1,0 +1,29 @@
+{
+  "name": "DS18B20 温度传感器",
+  "description": "DS18B20 数字温度传感器单总线通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["GPIO", "TIM2"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "DS18B20_DATA"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "65535"
+    }
+  },
+  "sensor": {
+    "type": "DS18B20",
+    "measurements": ["temperature"],
+    "range": {"temperature": "-55°C to +125°C"},
+    "accuracy": {"temperature": "±0.5°C"},
+    "resolution": "9-12 bit"
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

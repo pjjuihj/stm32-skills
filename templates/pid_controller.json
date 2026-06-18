@@ -1,0 +1,45 @@
+{
+  "name": "PID 控制器配置",
+  "description": "PID 闭环控制",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "TIM3", "ADC1", "DAC"],
+  "pins": [
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "FEEDBACK"},
+    {"pin": "PA4", "signal": "DAC_OUT1", "mode": "DAC_OUT1", "label": "OUTPUT"},
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "PWM_OUT"}
+  ],
+  "config": {
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "DISABLE",
+      "ContinuousConvMode": "ENABLE",
+      "ExternalTrigConv": "ADC_SOFTWARE_START",
+      "DataAlign": "ADC_DATAALIGN_RIGHT"
+    },
+    "DAC": {
+      "Trigger": "DAC_TRIGGER_SOFTWARE",
+      "OutputBuffer": "DAC_OUTPUTBUFFER_ENABLE"
+    },
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Pulse-PWM Generation1 CH1": "500"
+    }
+  },
+  "pid": {
+    "kp": 1.0,
+    "ki": 0.1,
+    "kd": 0.01,
+    "output_min": 0,
+    "output_max": 4095,
+    "sample_time_ms": 10
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

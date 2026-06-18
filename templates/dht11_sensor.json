@@ -1,0 +1,28 @@
+{
+  "name": "DHT11 温湿度传感器",
+  "description": "DHT11 温湿度传感器单总线通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["GPIO", "TIM2"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "DHT11_DATA"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "65535"
+    }
+  },
+  "sensor": {
+    "type": "DHT11",
+    "measurements": ["temperature", "humidity"],
+    "range": {"temperature": "0-50°C", "humidity": "20-90%RH"},
+    "accuracy": {"temperature": "±2°C", "humidity": "±5%RH"}
+  },
+  "nvic": {
+    "TIM2_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

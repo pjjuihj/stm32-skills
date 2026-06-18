@@ -1,0 +1,53 @@
+{
+  "name": "编码器 + 电机控制",
+  "description": "编码器输入 + PWM 电机输出 + 串口调试",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "TIM3", "TIM4", "USART1", "I2C1"],
+  "pins": [
+    {"pin": "PA15", "signal": "S_TIM2_CH1_ETR", "mode": "Encoder_Interface"},
+    {"pin": "PA1", "signal": "S_TIM2_CH2", "mode": "Encoder_Interface"},
+    {"pin": "PD12", "signal": "S_TIM4_CH1", "mode": "Encoder_Interface"},
+    {"pin": "PD13", "signal": "S_TIM4_CH2", "mode": "Encoder_Interface"},
+    {"pin": "PA6", "signal": "S_TIM3_CH1", "mode": "PWM Generation1 CH1"},
+    {"pin": "PA7", "signal": "S_TIM3_CH2", "mode": "PWM Generation2 CH2"},
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous"},
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PB12", "signal": "GPIO_Output", "label": "MOTOR_L_DIR"},
+    {"pin": "PB13", "signal": "GPIO_Output", "label": "MOTOR_R_DIR"}
+  ],
+  "config": {
+    "TIM2": {
+      "EncoderMode": "TIM_ENCODERMODE_TI12",
+      "Period": "65535"
+    },
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Pulse-PWM Generation1 CH1": "1500",
+      "Pulse-PWM Generation2 CH2": "1500"
+    },
+    "TIM4": {
+      "EncoderMode": "TIM_ENCODERMODE_TI12"
+    },
+    "USART1": {
+      "BaudRate": 115200,
+      "VirtualMode": "VM_ASYNC"
+    },
+    "I2C1": {
+      "Speed": 400000
+    }
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_ER_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

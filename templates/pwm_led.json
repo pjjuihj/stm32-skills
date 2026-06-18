@@ -1,0 +1,34 @@
+{
+  "name": "PWM LED 调光配置",
+  "description": "PWM LED 调光控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM3"],
+  "pins": [
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "LED_R"},
+    {"pin": "PA7", "signal": "TIM3_CH2", "mode": "PWM Generation2 CH2", "label": "LED_G"},
+    {"pin": "PB0", "signal": "TIM3_CH3", "mode": "PWM Generation3 CH3", "label": "LED_B"}
+  ],
+  "config": {
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Channel-PWM Generation3 CH3": "TIM_CHANNEL_3",
+      "Pulse-PWM Generation1 CH1": "0",
+      "Pulse-PWM Generation2 CH2": "0",
+      "Pulse-PWM Generation3 CH3": "0"
+    }
+  },
+  "led": {
+    "type": "RGB LED",
+    "color": ["Red", "Green", "Blue"],
+    "pwm_frequency": "1kHz",
+    "brightness": "0-100%"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

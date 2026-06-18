@@ -1,0 +1,36 @@
+{
+  "name": "电子墨水屏 2.9寸",
+  "description": "2.9寸电子墨水屏 SPI 通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["SPI1", "GPIO"],
+  "pins": [
+    {"pin": "PA5", "signal": "SPI1_SCK", "mode": "Full_Duplex_Master"},
+    {"pin": "PA7", "signal": "SPI1_MOSI", "mode": "Full_Duplex_Master"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "EINK_CS"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "EINK_DC"},
+    {"pin": "PA2", "signal": "GPIO_Output", "label": "EINK_RST"},
+    {"pin": "PA1", "signal": "GPIO_Input", "label": "EINK_BUSY"}
+  ],
+  "config": {
+    "SPI1": {
+      "Mode": "SPI_MODE_MASTER",
+      "Direction": "SPI_DIRECTION_1LINE",
+      "DataSize": "SPI_DATASIZE_8BIT",
+      "CLKPolarity": "SPI_POLARITY_LOW",
+      "CLKPhase": "SPI_PHASE_1EDGE",
+      "BaudRatePrescaler": "SPI_BAUDRATEPRESCALER_4"
+    }
+  },
+  "display": {
+    "resolution": "296x128",
+    "colors": ["Black", "White"],
+    "interface": "SPI",
+    "refresh_time": "2-3 seconds",
+    "power_consumption": "very low (static display)"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

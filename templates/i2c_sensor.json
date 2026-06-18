@@ -1,0 +1,22 @@
+{
+  "name": "I2C 传感器配置",
+  "description": "I2C1 + I2C2 双总线",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1", "I2C2"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PB10", "signal": "I2C2_SCL", "mode": "I2C"},
+    {"pin": "PB11", "signal": "I2C2_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {"Speed": 100000},
+    "I2C2": {"Speed": 400000}
+  },
+  "nvic": {
+    "I2C1_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_ER_IRQn": {"priority": 5, "enabled": true},
+    "I2C2_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C2_ER_IRQn": {"priority": 5, "enabled": true}
+  }
+}

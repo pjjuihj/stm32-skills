@@ -1,0 +1,25 @@
+{
+  "name": "OLED 显示配置",
+  "description": "SSD1306 OLED 显示屏 I2C 通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1", "GPIO"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"},
+    {"pin": "PA8", "signal": "GPIO_Output", "label": "OLED_RST"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "nvic": {
+    "I2C1_EV_IRQn": {"priority": 5, "enabled": true},
+    "I2C1_ER_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

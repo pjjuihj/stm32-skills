@@ -1,0 +1,36 @@
+{
+  "name": "DRV8825 步进电机驱动",
+  "description": "DRV8825 步进电机驱动配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM2", "GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "TIM2_CH1_ETR", "mode": "PWM Generation1 CH1", "label": "STEP"},
+    {"pin": "PA1", "signal": "GPIO_Output", "label": "DIR"},
+    {"pin": "PA2", "signal": "GPIO_Output", "label": "ENABLE"},
+    {"pin": "PA3", "signal": "GPIO_Output", "label": "M0"},
+    {"pin": "PA4", "signal": "GPIO_Output", "label": "M1"},
+    {"pin": "PA5", "signal": "GPIO_Output", "label": "M2"},
+    {"pin": "PB0", "signal": "GPIO_Input", "label": "FAULT"},
+    {"pin": "PB1", "signal": "GPIO_Input", "label": "LIMIT"}
+  ],
+  "config": {
+    "TIM2": {
+      "Prescaler": "84-1",
+      "Period": "1000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Pulse-PWM Generation1 CH1": "500"
+    }
+  },
+  "driver": {
+    "type": "DRV8825",
+    "max_current": "2.5A",
+    "microstepping": "1/32",
+    "voltage_range": "8.2V-45V",
+    "features": ["Overcurrent protection", "Thermal shutdown", "Fault output"]
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "DMA UART 配置",
+  "description": "DMA 方式 UART 通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "DMA"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous"}
+  ],
+  "config": {
+    "USART1": {
+      "BaudRate": 115200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    },
+    "DMA2_Stream7": {
+      "Channel": "DMA_CHANNEL_4",
+      "Direction": "DMA_MEMORY_TO_PERIPH",
+      "Mode": "DMA_NORMAL",
+      "Priority": "DMA_PRIORITY_LOW"
+    },
+    "DMA2_Stream5": {
+      "Channel": "DMA_CHANNEL_4",
+      "Direction": "DMA_PERIPH_TO_MEMORY",
+      "Mode": "DMA_CIRCULAR",
+      "Priority": "DMA_PRIORITY_HIGH"
+    }
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true},
+    "DMA2_Stream7_IRQn": {"priority": 6, "enabled": true},
+    "DMA2_Stream5_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

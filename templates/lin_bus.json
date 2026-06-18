@@ -1,0 +1,34 @@
+{
+  "name": "LIN 总线配置",
+  "description": "LIN 总线通信配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "GPIO"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous"},
+    {"pin": "PB0", "signal": "GPIO_Output", "label": "LIN_EN"}
+  ],
+  "config": {
+    "USART1": {
+      "BaudRate": 19200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    }
+  },
+  "lin": {
+    "version": "LIN 2.2A",
+    "baudrate": "9600 / 19200",
+    "max_nodes": 16,
+    "features": ["Sleep/Wake-up", "Diagnostics"],
+    "interface": "UART"
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

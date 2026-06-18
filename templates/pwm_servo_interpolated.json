@@ -1,0 +1,38 @@
+{
+  "name": "PWM 舵机插值控制配置",
+  "description": "PWM 舵机插值运动控制配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["TIM3"],
+  "pins": [
+    {"pin": "PA6", "signal": "TIM3_CH1", "mode": "PWM Generation1 CH1", "label": "SERVO_1"},
+    {"pin": "PA7", "signal": "TIM3_CH2", "mode": "PWM Generation2 CH2", "label": "SERVO_2"},
+    {"pin": "PB0", "signal": "TIM3_CH3", "mode": "PWM Generation3 CH3", "label": "SERVO_3"},
+    {"pin": "PB1", "signal": "TIM3_CH4", "mode": "PWM Generation4 CH4", "label": "SERVO_4"}
+  ],
+  "config": {
+    "TIM3": {
+      "Prescaler": "84-1",
+      "Period": "20000-1",
+      "Channel-PWM Generation1 CH1": "TIM_CHANNEL_1",
+      "Channel-PWM Generation2 CH2": "TIM_CHANNEL_2",
+      "Channel-PWM Generation3 CH3": "TIM_CHANNEL_3",
+      "Channel-PWM Generation4 CH4": "TIM_CHANNEL_4",
+      "Pulse-PWM Generation1 CH1": "1500",
+      "Pulse-PWM Generation2 CH2": "1500",
+      "Pulse-PWM Generation3 CH3": "1500",
+      "Pulse-PWM Generation4 CH4": "1500"
+    }
+  },
+  "servo": {
+    "type": "Servo with Interpolation",
+    "channels": 4,
+    "interpolation": "linear / cubic",
+    "keyframes": "configurable",
+    "animation": "sequencer"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

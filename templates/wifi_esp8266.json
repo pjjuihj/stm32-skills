@@ -1,0 +1,35 @@
+{
+  "name": "WiFi ESP8266 配置",
+  "description": "ESP8266 WiFi 模块串口通信",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "USART2", "GPIO"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous", "label": "WIFI_TX"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous", "label": "WIFI_RX"},
+    {"pin": "PA2", "signal": "USART2_TX", "mode": "Asynchronous", "label": "DEBUG_TX"},
+    {"pin": "PA3", "signal": "USART2_RX", "mode": "Asynchronous", "label": "DEBUG_RX"},
+    {"pin": "PB0", "signal": "GPIO_Output", "label": "WIFI_RST"},
+    {"pin": "PB1", "signal": "GPIO_Output", "label": "WIFI_EN"}
+  ],
+  "config": {
+    "USART1": {
+      "BaudRate": 115200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX"
+    },
+    "USART2": {
+      "BaudRate": 115200,
+      "VirtualMode": "VM_ASYNC"
+    }
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true},
+    "USART2_IRQn": {"priority": 6, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "电源管理配置",
+  "description": "电池电压监测和低功耗管理",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["ADC1", "PWR", "RTC"],
+  "pins": [
+    {"pin": "PA0", "signal": "ADC1_IN0", "mode": "ADC1_IN0", "label": "VBAT_SENSE"},
+    {"pin": "PA1", "signal": "ADC1_IN1", "mode": "ADC1_IN1", "label": "VREFINT"}
+  ],
+  "config": {
+    "ADC1": {
+      "Resolution": "ADC_RESOLUTION_12B",
+      "ScanConvMode": "ENABLE",
+      "ContinuousConvMode": "ENABLE",
+      "NbrOfConversion": "2"
+    },
+    "PWR": {
+      "VOS": "PWR_REGULATOR_VOLTAGE_SCALE1",
+      "FPDS": "ENABLE",
+      "LPDS": "ENABLE"
+    },
+    "RTC": {
+      "HourFormat": "RTC_HOURFORMAT_24",
+      "AsynchPrediv": "127",
+      "SynchPrediv": "255"
+    }
+  },
+  "power": {
+    "vbat_divider": "2:1",
+    "vrefint": "1.21V",
+    "low_power_modes": ["Sleep", "Stop", "Standby"],
+    "wakeup_sources": ["RTC", "EXTI", "UART"]
+  },
+  "nvic": {
+    "RTC_WKUP_IRQn": {"priority": 5, "enabled": true},
+    "PVD_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

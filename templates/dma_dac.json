@@ -1,0 +1,35 @@
+{
+  "name": "DMA DAC 配置",
+  "description": "DMA 方式 DAC 波形输出",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["DAC", "DMA", "TIM6"],
+  "pins": [
+    {"pin": "PA4", "signal": "DAC_OUT1", "mode": "DAC_OUT1", "label": "DAC_OUT"}
+  ],
+  "config": {
+    "DAC": {
+      "Channel-DAC_OUT1": "DAC_CHANNEL_1",
+      "Trigger-DAC_OUT1": "DAC_TRIGGER_T6_TRGO",
+      "OutputBuffer-DAC_OUT1": "DAC_OUTPUTBUFFER_ENABLE",
+      "WaveGeneration-DAC_OUT1": "DAC_WAVEGENERATION_NONE"
+    },
+    "DMA1_Stream5": {
+      "Channel": "DMA_CHANNEL_7",
+      "Direction": "DMA_MEMORY_TO_PERIPH",
+      "Mode": "DMA_CIRCULAR",
+      "Priority": "DMA_PRIORITY_HIGH"
+    },
+    "TIM6": {
+      "Prescaler": "0",
+      "Period": "105-1",
+      "TriggerOutput": "TIM_TRGO_UPDATE"
+    }
+  },
+  "nvic": {
+    "DMA1_Stream5_IRQn": {"priority": 5, "enabled": true}
+  },
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

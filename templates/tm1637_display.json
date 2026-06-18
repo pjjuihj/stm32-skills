@@ -1,0 +1,23 @@
+{
+  "name": "TM1637 数码管配置",
+  "description": "TM1637 4位数码管显示配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["GPIO"],
+  "pins": [
+    {"pin": "PA0", "signal": "GPIO_Output", "label": "TM1637_CLK"},
+    {"pin": "PA1", "signal": "GPIO_Output", "label": "TM1637_DIO"}
+  ],
+  "config": {},
+  "display": {
+    "type": "TM1637",
+    "digits": 4,
+    "colon": true,
+    "interface": "2-wire serial",
+    "brightness": "0-7 levels"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}

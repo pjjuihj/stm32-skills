@@ -1,0 +1,20 @@
+{
+  "name": "UART 通信配置",
+  "description": "USART1 + USART2 双串口",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["USART1", "USART2"],
+  "pins": [
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous"},
+    {"pin": "PA2", "signal": "USART2_TX", "mode": "Asynchronous"},
+    {"pin": "PA3", "signal": "USART2_RX", "mode": "Asynchronous"}
+  ],
+  "config": {
+    "USART1": {"BaudRate": 115200, "VirtualMode": "VM_ASYNC"},
+    "USART2": {"BaudRate": 115200, "VirtualMode": "VM_ASYNC"}
+  },
+  "nvic": {
+    "USART1_IRQn": {"priority": 5, "enabled": true},
+    "USART2_IRQn": {"priority": 5, "enabled": true}
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "name": "TCS34725 颜色传感器配置",
+  "description": "TCS34725 RGB 颜色传感器配置",
+  "mcu": "STM32F407VETx",
+  "peripherals": ["I2C1"],
+  "pins": [
+    {"pin": "PB6", "signal": "I2C1_SCL", "mode": "I2C"},
+    {"pin": "PB7", "signal": "I2C1_SDA", "mode": "I2C"}
+  ],
+  "config": {
+    "I2C1": {
+      "Speed": 400000,
+      "AddressingMode": "I2C_ADDRESSINGMODE_7BIT"
+    }
+  },
+  "sensor": {
+    "type": "TCS34725",
+    "measurements": ["Red", "Green", "Blue", "Clear", "Color Temperature"],
+    "resolution": "16-bit",
+    "integration_time": "2.4ms - 700ms",
+    "gain": "1x / 4x / 16x / 60x",
+    "i2c_address": "0x29",
+    "interface": "I2C"
+  },
+  "nvic": {},
+  "clock": {
+    "hse": 8,
+    "sysclk": 168
+  }
+}
