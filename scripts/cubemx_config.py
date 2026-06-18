@@ -542,7 +542,9 @@ class IocModifier:
         self.ioc.set(f"{adc}.ScanConvMode", "DISABLE")
         self.ioc.set(f"{adc}.ContinuousConvMode", "DISABLE")
         self.ioc.set(f"{adc}.DiscontinuousConvMode", "DISABLE")
-        self.ioc.set(f"{adc}.ExternalTrigConvEdge", "ADC_EXTERNALTRIGCONVEDGE_RISING")
+
+        # ADC 触发边沿（使用 CubeMX 正确格式）
+        self.ioc.set(f"{adc}.ExternalTrigConvEdge", "Trigger detection on the rising edge")
 
         # ADC 触发源（使用 CubeMX 正确格式）
         trigger_map = {
@@ -573,7 +575,9 @@ class IocModifier:
 
         self.ioc.set(f"{adc}.NbrOfConversion", "1")
         self.ioc.set(f"{adc}.DMAContinuousRequests", "DISABLE")
-        self.ioc.set(f"{adc}.EOCSelection", "ADC_EOC_SINGLE_CONV")
+
+        # ADC EOC 选择（使用 CubeMX 正确格式）
+        self.ioc.set(f"{adc}.EOCSelection", "EOC flag at the end of single channel conversion")
 
         # 分辨率
         self.ioc.set(f"{adc}.Resolution", f"ADC_RESOLUTION_{resolution}B")
