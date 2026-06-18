@@ -11,7 +11,7 @@ STM32 固件开发全流程自动化技能
 | ⚡ 代码优化 | 分析 Flash/RAM 使用率，给出优化建议 |
 | 🎮 Renode 仿真 | 无硬件仿真验证固件启动和 UART 输出 |
 | 🔥 烧录 | 支持 ST-LINK 和 USB DFU 两种方式 |
-| ⚙️ CubeMX 配置 | 自动化配置 .ioc 文件，生成初始化代码 |
+| ⚙️ CubeMX 配置 | 开启外设、配置引脚、配置时钟（外设详细参数需在 CubeMX 中手动配置） |
 | 📡 串口验证 | 监控串口数据，验证固件运行 |
 | 🔄 回归检测 | 对比修改前后的分析结果，检测问题 |
 
@@ -44,8 +44,17 @@ python usb_dfu_flash.py --full --port COM3 --firmware project.hex
 ### CubeMX 配置
 
 ```bash
-# 一键配置示波器+信号发生器
-python cubemx_config.py --modify project.ioc --config-scope --channel 6
+# 开启外设和配置引脚
+python cubemx_config.py --modify project.ioc --add-peripheral ADC1 --add-pin PA6 ADC1_IN6
+
+# 配置时钟
+python cubemx_config.py --modify project.ioc --set-clock --hse 8 --sysclk 168
+
+# 配置 GPIO
+python cubemx_config.py --modify project.ioc --config-gpio --gpio-pin PA8 --gpio-mode Output --gpio-label LED
+
+# 在 CubeMX 中配置外设详细参数
+# 打开 CubeMX → 配置 ADC、DAC、USART 等
 
 # 生成代码
 python cubemx_config.py --generate project.ioc --toolchain "MDK-ARM V5"

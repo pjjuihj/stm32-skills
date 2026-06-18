@@ -135,52 +135,72 @@ python usb_dfu_flash.py --full --port COM3 --firmware project.hex
 
 **安全约束**：不全片擦除、不写 Option Bytes、不改读保护
 
-## CubeMX 自动化配置
+## CubeMX 配置
+
+### 能力说明
+
+| 功能 | 状态 | 命令 |
+|------|------|------|
+| **开启外设** | ✅ 可用 | `--add-peripheral ADC1` |
+| **配置引脚** | ✅ 可用 | `--add-pin PA6 ADC1_IN6` |
+| **配置时钟** | ✅ 可用 | `--set-clock --hse 8 --sysclk 168` |
+| **配置 GPIO** | ✅ 可用 | `--config-gpio --gpio-pin PA8 --gpio-mode Output` |
+| **配置 NVIC** | ✅ 可用 | `--config-nvic --irq USART1_IRQn --nvic-priority 5` |
+| **添加任务** | ✅ 可用 | `--add-task --name MyTask --stack 256` |
+| **外设参数** | ⚠️ 部分 | 需要在 CubeMX 中手动配置 |
+
+### 使用方法
 
 ```bash
-# 解析配置
-python cubemx_config.py --parse project.ioc
+# 1. 开启外设和配置引脚
+python cubemx_config.py --modify project.ioc --add-peripheral ADC1 --add-pin PA6 ADC1_IN6
 
-# 创建新配置
-python cubemx_config.py --create --mcu STM32F407VETx --output new.ioc
+# 2. 配置时钟
+python cubemx_config.py --modify project.ioc --set-clock --hse 8 --sysclk 168
 
-# 一键配置示波器+信号发生器
-python cubemx_config.py --modify project.ioc --config-scope --channel 6 --dac-channel 1
+# 3. 配置 GPIO
+python cubemx_config.py --modify project.ioc --config-gpio --gpio-pin PA8 --gpio-mode Output --gpio-label LED
 
-# 详细配置
-python cubemx_config.py --modify project.ioc --config-adc --channel 6 --trigger TIM9_TRGO
-python cubemx_config.py --modify project.ioc --config-dac --dac-channel 1 --trigger TIM5_TRGO
-python cubemx_config.py --modify project.ioc --config-usart --baudrate 115200
-python cubemx_config.py --modify project.ioc --config-tim --prescaler 84 --period 1000
+# 4. 配置 NVIC
+python cubemx_config.py --modify project.ioc --config-nvic --irq USART1_IRQn --nvic-priority 5
 
-# 生成代码
+# 5. 添加 FreeRTOS 任务
+python cubemx_config.py --modify project.ioc --add-task --name SensorTask --stack 256 --priority High
+
+# 6. 在 CubeMX 中配置外设详细参数
+#    打开 CubeMX → 配置 ADC、DAC、USART 等
+
+# 7. 生成代码
 python cubemx_config.py --generate project.ioc --toolchain "MDK-ARM V5"
 ```
 
-### 详细配置命令
+### 详细配置命令（部分支持）
 
-| 配置类型 | 命令示例 |
-|---------|---------|
-| **DMA** | `--config-dma --dma-stream DMA2_Stream0 --dma-channel 0 --dma-direction PeripheralToMemory --dma-mode Circular` |
-| **SPI** | `--config-spi --spi SPI1 --spi-mode Master --spi-direction FullDuplex --spi-datasize 8` |
-| **RTC** | `--config-rtc --rtc-clock LSE --rtc-format 24h --rtc-dateformat DD/MM/YYYY` |
-| **CAN** | `--config-can --can CAN1 --can-mode Normal --can-baudrate 500000` |
-| **GPIO** | `--config-gpio --gpio-pin PA8 --gpio-mode Output --gpio-speed High --gpio-label LED` |
-| **PWM** | `--config-pwm --pwm-tim TIM3 --pwm-channel 1 --pwm-prescaler 84 --pwm-period 20000 --pwm-pulse 1500` |
-| **编码器** | `--config-encoder --encoder-tim TIM2 --encoder-mode TI12 --encoder-period 65535` |
-| **看门狗** | `--config-watchdog --iwdg IWDG --iwdg-prescaler 64 --iwdg-reload 625` |
-| **系统** | `--config-system --debug-interface SerialWire --sysclk-source PLL --voltage-scale Scale1` |
-| **FMC** | `--config-fmc --fmc-memory-type SRAM --fmc-data-width 16 --fmc-address-width 20` |
-| **DCMI** | `--config-dcmi --dcmi-capture-rate AllFrame --dcmi-synchro Hardware` |
-| **以太网** | `--config-eth --eth-mode RMII --eth-speed 100 --eth-duplex Full` |
-| **USB 设备** | `--config-usb-device --usb-class CDC --usb-speed Full` |
-| **USB 主机** | `--config-usb-host --usb-speed Full` |
-| **电源管理** | `--config-power --power-mode Run --pvd-enable --pvd-level 2.9` |
-| **RTC 闹钟** | `--config-rtc-alarm --rtc-alarm 1 --rtc-alarm-mask None --rtc-wake-up` |
-| **DMA 循环** | `--config-dma-circular --dma-buffer-size 1024` |
-| **FatFS** | `--config-fatfs --fatfs-drive SD --fatfs-code-page 936` |
-| **LwIP** | `--config-lwip --lwip-dhcp --lwip-ip 192.168.1.100` |
-| **FreeRTOS 堆** | `--config-freertos-heap --freertos-heap-size 16384 --freertos-stack-check 2` |
+| 配置类型 | 命令示例 | 说明 |
+|---------|---------|------|
+| **ADC** | `--config-adc --channel 6` | 基本配置，详细参数需在 CubeMX 中设置 |
+| **DAC** | `--config-dac --dac-channel 1` | 基本配置 |
+| **USART** | `--config-usart --baudrate 115200` | 基本配置，格式可能不完美 |
+| **I2C** | `--config-i2c --speed 400000` | 基本配置 |
+| **TIM** | `--config-tim --prescaler 84 --period 1000` | 基本配置 |
+| **GPIO** | `--config-gpio --gpio-pin PA8 --gpio-mode Output` | 完整配置 |
+| **NVIC** | `--config-nvic --irq USART1_IRQn --nvic-priority 5` | 完整配置 |
+
+### 限制
+
+| 限制 | 说明 |
+|------|------|
+| **外设参数** | 无法配置 CubeMX 接受的详细参数格式 |
+| **DMA** | 无法配置详细 DMA 参数 |
+| **中间件** | 无法配置 FreeRTOS、FatFS 等高级配置 |
+
+### 推荐工作流程
+
+```
+1. 用 cubemx_config.py 开启外设和配置引脚（脚本完成）
+2. 用 CubeMX 手动配置外设详细参数（手动完成）
+3. 用 cubemx_config.py 生成代码（脚本完成）
+```
 
 ### 配置模板
 
