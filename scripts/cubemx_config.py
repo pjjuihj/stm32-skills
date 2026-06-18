@@ -806,6 +806,17 @@ class IocModifier:
         self._log("\n🔧 一键配置串口示波器 + 信号发生器")
         self._log("=" * 50)
 
+        # 0. 添加必要的引脚
+        self.add_pin("PH0-OSC_IN", "RCC_OSC_IN", "HSE-External-Oscillator")
+        self.add_pin("PH1-OSC_OUT", "RCC_OSC_OUT", "HSE-External-Oscillator")
+        self.add_pin(f"PA{adc_channel}", f"ADC1_IN{adc_channel}", f"ADC1_IN{adc_channel}")
+        self.add_pin("PA2", "USART2_TX", "Asynchronous")
+        self.add_pin("PA3", "USART2_RX", "Asynchronous")
+        self.add_pin("PA13", "SYS_JTMS-SWDIO", "Serial_Wire")
+        self.add_pin("PA14", "SYS_JTCK-SWCLK", "Serial_Wire")
+        self.add_pin("PB6", "I2C1_SCL", "I2C")
+        self.add_pin("PB7", "I2C1_SDA", "I2C")
+
         # 1. 配置 ADC (示波器)
         self.config_adc(
             adc="ADC1",
@@ -1957,6 +1968,17 @@ class IocModifier:
         """
         self._log("\n🔧 一键配置串口示波器 + 信号发生器")
         self._log("=" * 50)
+
+        # 0. 添加必要的引脚
+        self.add_pin("PH0-OSC_IN", "RCC_OSC_IN", "HSE-External-Oscillator")
+        self.add_pin("PH1-OSC_OUT", "RCC_OSC_OUT", "HSE-External-Oscillator")
+        self.add_pin(f"PA{adc_channel}", f"ADC1_IN{adc_channel}", f"ADC1_IN{adc_channel}")
+        self.add_pin("PA2", "USART2_TX", "Asynchronous")
+        self.add_pin("PA3", "USART2_RX", "Asynchronous")
+        self.add_pin("PA13", "SYS_JTMS-SWDIO", "Serial_Wire")
+        self.add_pin("PA14", "SYS_JTCK-SWCLK", "Serial_Wire")
+        self.add_pin("PB6", "I2C1_SCL", "I2C")
+        self.add_pin("PB7", "I2C1_SDA", "I2C")
 
         # 1. 配置 ADC (示波器)
         self.config_adc(
