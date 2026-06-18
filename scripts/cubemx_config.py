@@ -308,12 +308,11 @@ class IocModifier:
     def _append_ip_param(self, peripheral: str, param: str) -> None:
         """追加 IPParameters 参数（避免重复）"""
         ip_params = self.ioc.get(f"{peripheral}.IPParameters", "")
-        if param not in ip_params:
-            if ip_params:
-                ip_params += f",{param}"
-            else:
-                ip_params = param
-            self.ioc.set(f"{peripheral}.IPParameters", ip_params)
+        # 使用逗号分隔检查，避免子字符串匹配问题
+        params_list = ip_params.split(",") if ip_params else []
+        if param not in params_list:
+            params_list.append(param)
+            self.ioc.set(f"{peripheral}.IPParameters", ",".join(params_list))
 
     def add_peripheral(self, peripheral: str) -> None:
         """添加外设"""
