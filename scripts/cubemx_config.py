@@ -543,8 +543,34 @@ class IocModifier:
         self.ioc.set(f"{adc}.ContinuousConvMode", "DISABLE")
         self.ioc.set(f"{adc}.DiscontinuousConvMode", "DISABLE")
         self.ioc.set(f"{adc}.ExternalTrigConvEdge", "ADC_EXTERNALTRIGCONVEDGE_RISING")
-        self.ioc.set(f"{adc}.ExternalTrigConv", f"ADC_EXTERNALTRIGCONV_{trigger}")
-        self.ioc.set(f"{adc}.DataAlign", f"ADC_DATAALIGN_{alignment.upper()}")
+
+        # ADC 触发源（使用 CubeMX 正确格式）
+        trigger_map = {
+            "SOFTWARE": "Regular Conversion launched by software",
+            "TIM1_TRGO": "Timer 1 Trigger Out event",
+            "TIM2_TRGO": "Timer 2 Trigger Out event",
+            "TIM3_TRGO": "Timer 3 Trigger Out event",
+            "TIM4_TRGO": "Timer 4 Trigger Out event",
+            "TIM5_TRGO": "Timer 5 Trigger Out event",
+            "TIM6_TRGO": "Timer 6 Trigger Out event",
+            "TIM7_TRGO": "Timer 7 Trigger Out event",
+            "TIM8_TRGO": "Timer 8 Trigger Out event",
+            "TIM9_TRGO": "Timer 9 Trigger Out event",
+            "TIM10_TRGO": "Timer 10 Trigger Out event",
+            "TIM11_TRGO": "Timer 11 Trigger Out event",
+            "TIM12_TRGO": "Timer 12 Trigger Out event",
+            "TIM13_TRGO": "Timer 13 Trigger Out event",
+            "TIM14_TRGO": "Timer 14 Trigger Out event",
+        }
+        self.ioc.set(f"{adc}.ExternalTrigConv", trigger_map.get(trigger, f"Timer 9 Trigger Out event"))
+
+        # ADC 数据对齐（使用 CubeMX 正确格式）
+        alignment_map = {
+            "Right": "Right alignment",
+            "Left": "Left alignment",
+        }
+        self.ioc.set(f"{adc}.DataAlign", alignment_map.get(alignment, "Right alignment"))
+
         self.ioc.set(f"{adc}.NbrOfConversion", "1")
         self.ioc.set(f"{adc}.DMAContinuousRequests", "DISABLE")
         self.ioc.set(f"{adc}.EOCSelection", "ADC_EOC_SINGLE_CONV")
