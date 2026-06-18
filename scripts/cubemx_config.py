@@ -553,7 +553,7 @@ class IocModifier:
         self.ioc.set(f"{adc}.Resolution", f"ADC_RESOLUTION_{resolution}B")
 
         # 通道配置（使用 CubeMX 兼容格式）
-        ch_name = f"{channel}#ChannelRegularConversion"
+        ch_name = f"{channel}"
         self.ioc.set(f"{adc}.Channel-{ch_name}", f"ADC_CHANNEL_{channel}")
         self.ioc.set(f"{adc}.Rank-{ch_name}", "1")
 
@@ -575,6 +575,20 @@ class IocModifier:
         # 添加 NbrOfConversionFlag 和 master 参数（CubeMX 需要）
         self.ioc.set(f"{adc}.NbrOfConversionFlag", "1")
         self.ioc.set(f"{adc}.master", "1")
+
+        # 更新 IPParameters（使用正确的格式）
+        self._append_ip_param(adc, "Resolution")
+        self._append_ip_param(adc, "ScanConvMode")
+        self._append_ip_param(adc, "ContinuousConvMode")
+        self._append_ip_param(adc, "ExternalTrigConv")
+        self._append_ip_param(adc, "ExternalTrigConvEdge")
+        self._append_ip_param(adc, "DataAlign")
+        self._append_ip_param(adc, "NbrOfConversion")
+        self._append_ip_param(adc, f"Channel-{ch_name}")
+        self._append_ip_param(adc, f"Rank-{ch_name}")
+        self._append_ip_param(adc, f"SamplingTime-{ch_name}")
+        self._append_ip_param(adc, "NbrOfConversionFlag")
+        self._append_ip_param(adc, "master")
 
         # IPParameters
         self._append_ip_param(adc, "Resolution")
@@ -647,17 +661,17 @@ class IocModifier:
         self.ioc.set(f"{usart}.BaudRate", str(baudrate))
         self.ioc.set(f"{usart}.VirtualMode", "VM_ASYNC")
 
-        # 数据位（使用 CubeMX 兼容格式）
+        # 数据位（使用 CubeMX 完整格式）
         if databits == 9:
-            self.ioc.set(f"{usart}.WordLength", "9")
+            self.ioc.set(f"{usart}.WordLength", "Word Length - 9 Bits")
         else:
-            self.ioc.set(f"{usart}.WordLength", "8")
+            self.ioc.set(f"{usart}.WordLength", "Word Length - 8 Bits")
 
-        # 停止位（使用 CubeMX 兼容格式）
+        # 停止位（使用 CubeMX 完整格式）
         if stopbits == 2:
-            self.ioc.set(f"{usart}.StopBits", "2")
+            self.ioc.set(f"{usart}.StopBits", "Stop Bits - 2")
         else:
-            self.ioc.set(f"{usart}.StopBits", "1")
+            self.ioc.set(f"{usart}.StopBits", "Stop Bits - 1")
 
         # 校验位（使用 CubeMX 兼容格式）
         parity_map = {
