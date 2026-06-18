@@ -552,8 +552,8 @@ class IocModifier:
         # 分辨率
         self.ioc.set(f"{adc}.Resolution", f"ADC_RESOLUTION_{resolution}B")
 
-        # 通道配置
-        ch_name = f"ADC1_IN{channel}"
+        # 通道配置（使用 CubeMX 兼容格式）
+        ch_name = f"{channel}#ChannelRegularConversion"
         self.ioc.set(f"{adc}.Channel-{ch_name}", f"ADC_CHANNEL_{channel}")
         self.ioc.set(f"{adc}.Rank-{ch_name}", "1")
 
@@ -572,6 +572,10 @@ class IocModifier:
         closest = min(sampling_map.keys(), key=lambda x: abs(x - sampling))
         self.ioc.set(f"{adc}.SamplingTime-{ch_name}", sampling_map[closest])
 
+        # 添加 NbrOfConversionFlag 和 master 参数（CubeMX 需要）
+        self.ioc.set(f"{adc}.NbrOfConversionFlag", "1")
+        self.ioc.set(f"{adc}.master", "1")
+
         # IPParameters
         self._append_ip_param(adc, "Resolution")
         self._append_ip_param(adc, "ScanConvMode")
@@ -583,6 +587,8 @@ class IocModifier:
         self._append_ip_param(adc, f"Channel-{ch_name}")
         self._append_ip_param(adc, f"Rank-{ch_name}")
         self._append_ip_param(adc, f"SamplingTime-{ch_name}")
+        self._append_ip_param(adc, "NbrOfConversionFlag")
+        self._append_ip_param(adc, "master")
 
         self._log(f"✅ 已配置 {adc}: 通道{channel}, 触发={trigger}, 采样={closest}周期, 分辨率={resolution}位")
 
