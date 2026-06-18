@@ -704,7 +704,9 @@ class IocModifier:
             self.ioc.set(f"{i2c}.AddressingMode", "I2C_ADDRESSINGMODE_7BIT")
 
         # IPParameters
-        self.ioc.set(f"{i2c}.IPParameters", "Speed,SpeedMode,AddressingMode")
+        self._append_ip_param(i2c, "Speed")
+        self._append_ip_param(i2c, "SpeedMode")
+        self._append_ip_param(i2c, "AddressingMode")
 
         self._log(f"✅ 已配置 {i2c}: {speed}Hz, {addressing}位地址")
 
@@ -916,7 +918,9 @@ class IocModifier:
         self.ioc.set(f"{dma_stream}.MemInc", "DMA_MINC_ENABLE")
 
         # IPParameters
-        self.ioc.set(f"{dma_stream}.IPParameters", "Channel,Direction,Mode,Priority,Request,PeriphDataAlignment,MemDataAlignment,PeriphInc,MemInc")
+        for param in ["Channel", "Direction", "Mode", "Priority", "Request",
+                       "PeriphDataAlignment", "MemDataAlignment", "PeriphInc", "MemInc"]:
+            self._append_ip_param(dma_stream, param)
 
         self._log(f"✅ 已配置 {dma_stream}: 通道{channel}, 方向={direction}, 模式={mode}, 优先级={priority}")
 
@@ -1042,7 +1046,10 @@ class IocModifier:
             self.ioc.set(f"{rtc}.DateMode", "RTC_DATEMODE_DDMMYYYY")
 
         # IPParameters
-        self.ioc.set(f"{rtc}.IPParameters", "HourFormat,AsynchPrediv,SynchPrediv,DateMode")
+        self._append_ip_param(rtc, "HourFormat")
+        self._append_ip_param(rtc, "AsynchPrediv")
+        self._append_ip_param(rtc, "SynchPrediv")
+        self._append_ip_param(rtc, "DateMode")
 
         self._log(f"✅ 已配置 {rtc}: 时钟源={clock_source}, 格式={format}, 日期格式={date_format}")
 
@@ -1211,7 +1218,11 @@ class IocModifier:
         duty_cycle = pulse / period * 100
 
         # IPParameters
-        self.ioc.set(f"{tim}.IPParameters", f"Prescaler,Period,Channel-PWM Generation{channel} CH{channel},Pulse-PWM Generation{channel} CH{channel},OC-PWM Generation{channel} CH{channel}")
+        self._append_ip_param(tim, "Prescaler")
+        self._append_ip_param(tim, "Period")
+        self._append_ip_param(tim, f"Channel-PWM Generation{channel} CH{channel}")
+        self._append_ip_param(tim, f"Pulse-PWM Generation{channel} CH{channel}")
+        self._append_ip_param(tim, f"OC-PWM Generation{channel} CH{channel}")
 
         self._log(f"✅ 已配置 {tim} CH{channel}: 频率={actual_freq:.1f}Hz, 占空比={duty_cycle:.1f}%, 脉宽={pulse}")
 
@@ -1253,7 +1264,10 @@ class IocModifier:
         self.ioc.set(f"{tim}.IC2Polarity", self.ioc.get(f"{tim}.IC1Polarity"))
 
         # IPParameters
-        self.ioc.set(f"{tim}.IPParameters", "EncoderMode,Period,IC1Polarity,IC2Polarity")
+        self._append_ip_param(tim, "EncoderMode")
+        self._append_ip_param(tim, "Period")
+        self._append_ip_param(tim, "IC1Polarity")
+        self._append_ip_param(tim, "IC2Polarity")
 
         self._log(f"✅ 已配置 {tim} 编码器: 模式={mode}, 周期={period}, 极性={polarity}")
 
