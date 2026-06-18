@@ -647,28 +647,28 @@ class IocModifier:
         self.ioc.set(f"{usart}.BaudRate", str(baudrate))
         self.ioc.set(f"{usart}.VirtualMode", "VM_ASYNC")
 
-        # 数据位
+        # 数据位（使用 CubeMX 兼容格式）
         if databits == 9:
-            self.ioc.set(f"{usart}.WordLength", "UART_WORDLENGTH_9B")
+            self.ioc.set(f"{usart}.WordLength", "9")
         else:
-            self.ioc.set(f"{usart}.WordLength", "UART_WORDLENGTH_8B")
+            self.ioc.set(f"{usart}.WordLength", "8")
 
-        # 停止位
+        # 停止位（使用 CubeMX 兼容格式）
         if stopbits == 2:
-            self.ioc.set(f"{usart}.StopBits", "UART_STOPBITS_2")
+            self.ioc.set(f"{usart}.StopBits", "2")
         else:
-            self.ioc.set(f"{usart}.StopBits", "UART_STOPBITS_1")
+            self.ioc.set(f"{usart}.StopBits", "1")
 
-        # 校验位
-        if parity == "Even":
-            self.ioc.set(f"{usart}.Parity", "UART_PARITY_EVEN")
-        elif parity == "Odd":
-            self.ioc.set(f"{usart}.Parity", "UART_PARITY_ODD")
-        else:
-            self.ioc.set(f"{usart}.Parity", "UART_PARITY_NONE")
+        # 校验位（使用 CubeMX 兼容格式）
+        parity_map = {
+            "Even": "Even",
+            "Odd": "Odd",
+            "None": "None"
+        }
+        self.ioc.set(f"{usart}.Parity", parity_map.get(parity, "None"))
 
         # 模式（TX+RX）
-        self.ioc.set(f"{usart}.Mode", "MODE_TX_RX")
+        self.ioc.set(f"{usart}.Mode", "Asynchronous")
 
         # IPParameters
         self._append_ip_param(usart, "VirtualMode")
