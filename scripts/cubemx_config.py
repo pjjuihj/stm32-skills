@@ -661,28 +661,32 @@ class IocModifier:
         self.ioc.set(f"{usart}.BaudRate", str(baudrate))
         self.ioc.set(f"{usart}.VirtualMode", "VM_ASYNC")
 
-        # 数据位（使用 CubeMX 完整格式）
+        # 数据位（使用 CubeMX 正确格式）
         if databits == 9:
-            self.ioc.set(f"{usart}.WordLength", "Word Length - 9 Bits")
+            self.ioc.set(f"{usart}.WordLength", "9 Bits (including Parity)")
         else:
-            self.ioc.set(f"{usart}.WordLength", "Word Length - 8 Bits")
+            self.ioc.set(f"{usart}.WordLength", "8 Bits (including Parity)")
 
-        # 停止位（使用 CubeMX 完整格式）
+        # 停止位（使用 CubeMX 正确格式）
         if stopbits == 2:
-            self.ioc.set(f"{usart}.StopBits", "Stop Bits - 2")
+            self.ioc.set(f"{usart}.StopBits", "2")
         else:
-            self.ioc.set(f"{usart}.StopBits", "Stop Bits - 1")
+            self.ioc.set(f"{usart}.StopBits", "1")
 
-        # 校验位（使用 CubeMX 兼容格式）
-        parity_map = {
-            "Even": "Even",
-            "Odd": "Odd",
-            "None": "None"
-        }
-        self.ioc.set(f"{usart}.Parity", parity_map.get(parity, "None"))
+        # 校验位
+        self.ioc.set(f"{usart}.Parity", parity)
 
-        # 模式（TX+RX）
+        # 数据方向（使用 CubeMX 正确格式）
+        self.ioc.set(f"{usart}.DataDirection", "Receive and Transmit")
+
+        # 模式
         self.ioc.set(f"{usart}.Mode", "Asynchronous")
+
+        # 硬件流控制
+        self.ioc.set(f"{usart}.HardwareFlowControl", "Hardware Flow Control - Disable")
+
+        # 过采样
+        self.ioc.set(f"{usart}.OverSampling", "16 Samples")
 
         # IPParameters
         self._append_ip_param(usart, "VirtualMode")
@@ -691,6 +695,9 @@ class IocModifier:
         self._append_ip_param(usart, "StopBits")
         self._append_ip_param(usart, "Parity")
         self._append_ip_param(usart, "Mode")
+        self._append_ip_param(usart, "DataDirection")
+        self._append_ip_param(usart, "HardwareFlowControl")
+        self._append_ip_param(usart, "OverSampling")
 
         self._log(f"✅ 已配置 {usart}: {baudrate}bps, {databits}数据位, {stopbits}停止位, {parity}校验")
 
