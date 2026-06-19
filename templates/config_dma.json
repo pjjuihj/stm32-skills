@@ -1,0 +1,46 @@
+{
+  "name": "DMA 配置模板",
+  "description": "DMA 传输配置模板",
+  "parameters": {
+    "dma_stream": {
+      "type": "string",
+      "default": "DMA2_Stream0",
+      "options": ["DMA1_Stream0", "DMA1_Stream1", "DMA1_Stream2", "DMA1_Stream3",
+                   "DMA1_Stream4", "DMA1_Stream5", "DMA1_Stream6", "DMA1_Stream7",
+                   "DMA2_Stream0", "DMA2_Stream1", "DMA2_Stream2", "DMA2_Stream3",
+                   "DMA2_Stream4", "DMA2_Stream5", "DMA2_Stream6", "DMA2_Stream7"],
+      "description": "DMA 流名称"
+    },
+    "channel": {
+      "type": "integer",
+      "default": 0,
+      "min": 0,
+      "max": 15,
+      "description": "DMA 通道号"
+    },
+    "direction": {
+      "type": "string",
+      "default": "PeripheralToMemory",
+      "options": ["PeripheralToMemory", "MemoryToPeripheral", "MemoryToMemory"],
+      "description": "传输方向"
+    },
+    "mode": {
+      "type": "string",
+      "default": "Normal",
+      "options": ["Normal", "Circular"],
+      "description": "DMA 模式"
+    },
+    "priority": {
+      "type": "string",
+      "default": "Low",
+      "options": ["Low", "Medium", "High", "VeryHigh"],
+      "description": "DMA 优先级"
+    },
+    "request": {
+      "type": "string",
+      "default": "ADC1",
+      "description": "关联外设请求"
+    }
+  },
+  "usage": "python cubemx_config.py --modify project.ioc --config-dma --dma-stream DMA2_Stream0 --dma-channel 0 --dma-direction PeripheralToMemory --dma-mode Circular"
+}

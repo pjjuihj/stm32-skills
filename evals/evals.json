@@ -9,7 +9,7 @@
     },
     {
       "id": 2,
-      "prompt": "我想为 STM32F407 配置一个串口示波器和信号发生器，使用 CubeMX 自动生成配置",
+      "prompt": "我想用 CubeMX 配置一个串口示波器和信号发生器，使用 CubeMX 自动生成配置",
       "expected_output": "应该使用 cubemx_config.py 脚本配置 ADC、DAC、USART、定时器等外设",
       "files": []
     },

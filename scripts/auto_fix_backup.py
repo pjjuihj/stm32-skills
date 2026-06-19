@@ -9,7 +9,7 @@
 - 生成修复报告
 
 使用示例：
-  python auto_fix.py --log build.log --project .
+  python auto_fix.py --log build.log --project project.uvprojx
   python auto_fix.py --log build.log --auto-fix
 """
 
@@ -90,23 +90,6 @@ ERROR_PATTERNS = {
         "description": "重复定义",
         "fix": "remove_duplicate"
     },
-    "undefined_symbol": {
-        "pattern": r"Undefined symbol (.+)",
-        "description": "未定义符号",
-        "fix": "add_implementation"
-    },
-
-    # ARMClang 特有错误
-    "armclang_error": {
-        "pattern": r"error: (.+)",
-        "description": "ARMClang 编译错误",
-        "fix": "parse_armclang_error"
-    },
-    "armclang_warning": {
-        "pattern": r"warning: (.+)",
-        "description": "ARMClang 编译警告",
-        "fix": "parse_armclang_warning"
-    },
 
     # 告警
     "unused_variable": {
@@ -123,11 +106,6 @@ ERROR_PATTERNS = {
         "pattern": r"implicit declaration of function '(.+)'",
         "description": "隐式函数声明",
         "fix": "add_function_declaration"
-    },
-    "incompatible_pointer": {
-        "pattern": r"passing '(.+)' to parameter of type '(.+)' discards qualifiers",
-        "description": "类型不兼容",
-        "fix": "fix_pointer_type"
     }
 }
 
@@ -584,87 +562,7 @@ void StartDefaultTask(void *argument) {
 #include "MPU6050.h"
 
 /* 当前未使用 */
-""",
-
-    "scope.c": """/**
- * @file    scope.c
- * @brief   示波器采集模块（占位）
- */
-
-#include "scope.h"
-
-/* 当前未使用 */
-""",
-
-    "scope_uart.c": """/**
- * @file    scope_uart.c
- * @brief   示波器串口通信协议（占位）
- */
-
-#include "scope_uart.h"
-
-/* 当前未使用 */
-""",
-
-    "scope_display.c": """/**
- * @file    scope_display.c
- * @brief   示波器 OLED 显示模块（占位）
- */
-
-#include "scope_display.h"
-
-/* 当前未使用 */
-""",
-
-    "siggen.c": """/**
- * @file    siggen.c
- * @brief   信号发生器模块（占位）
- */
-
-#include "siggen.h"
-
-/* 当前未使用 */
-""",
-
-    "adc.c": """/**
- * @file    adc.c
- * @brief   ADC 驱动（占位）
- */
-
-#include "adc.h"
-
-/* 当前未使用 */
-""",
-
-    "dac.c": """/**
- * @file    dac.c
- * @brief   DAC 驱动（占位）
- */
-
-#include "dac.h"
-
-/* 当前未使用 */
-""",
-
-    "iwdg.c": """/**
- * @file    iwdg.c
- * @brief   独立看门狗驱动（占位）
- */
-
-#include "iwdg.h"
-
-/* 当前未使用 */
-""",
-
-    "tim.c": """/**
- * @file    tim.c
- * @brief   定时器驱动（占位）
- */
-
-#include "tim.h"
-
-/* 当前未使用 */
-""",
+"""
 }
 
 # ======================== 错误解析器 ========================
