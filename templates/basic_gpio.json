@@ -1,30 +1,107 @@
 {
   "name": "基础 GPIO 配置",
-  "description": "LED 输出 + 按键输入",
+  "description": "LED 输出 + 按键输入 + 外部中断",
+  "version": "1.0.0",
+  "author": "STM32 Keil Workflow",
   "mcu": "STM32F407VETx",
+  "package": "LQFP100",
+  "clock": {
+    "hse": 8,
+    "sysclk": 168,
+    "ahb": 168,
+    "apb1": 42,
+    "apb2": 84,
+    "pll_m": 8,
+    "pll_n": 336,
+    "pll_p": 2
+  },
+  "peripherals": ["GPIO", "RCC", "SYS"],
   "pins": [
     {
       "pin": "PA8",
       "signal": "GPIO_Output",
       "mode": "GPIO_Output",
-      "label": "LED",
+      "label": "LED1",
+      "description": "LED 指示灯",
       "gpio_params": {
         "GPIO_ModeDefaultOutputPP": "GPIO_MODE_OUTPUT_PP",
-        "GPIO_PuPd": "GPIO_PULLDOWN",
-        "GPIO_Speed": "GPIO_SPEED_FREQ_HIGH"
+        "GPIO_PuPd": "GPIO_NOPULL",
+        "GPIO_Speed": "GPIO_SPEED_FREQ_LOW"
+      }
+    },
+    {
+      "pin": "PA9",
+      "signal": "GPIO_Output",
+      "mode": "GPIO_Output",
+      "label": "LED2",
+      "description": "LED 指示灯",
+      "gpio_params": {
+        "GPIO_ModeDefaultOutputPP": "GPIO_MODE_OUTPUT_PP",
+        "GPIO_PuPd": "GPIO_NOPULL",
+        "GPIO_Speed": "GPIO_SPEED_FREQ_LOW"
       }
     },
     {
       "pin": "PA0",
       "signal": "GPXTI0",
       "mode": "GPIO_EXTI0",
-      "label": "BTN",
+      "label": "BTN1",
+      "description": "按键输入（外部中断）",
       "gpio_params": {
-        "GPIO_PuPd": "GPIO_NOPULL"
+        "GPIO_PuPd": "GPIO_PULLUP"
       }
+    },
+    {
+      "pin": "PA1",
+      "signal": "GPIO_Input",
+      "mode": "GPIO_Input",
+      "label": "BTN2",
+      "description": "按键输入（轮询）",
+      "gpio_params": {
+        "GPIO_PuPd": "GPIO_PULLUP"
+      }
+    },
+    {
+      "pin": "PA13",
+      "signal": "SYS_JTMS-SWDIO",
+      "mode": "Serial_Wire",
+      "label": "SWDIO",
+      "description": "SWD 调试数据线"
+    },
+    {
+      "pin": "PA14",
+      "signal": "SYS_JTCK-SWCLK",
+      "mode": "Serial_Wire",
+      "label": "SWCLK",
+      "description": "SWD 调试时钟线"
     }
   ],
   "nvic": {
-    "EXTI0_IRQn": {"priority": 6, "enabled": true}
+    "EXTI0_IRQn": {"priority": 6, "subpriority": 0, "enabled": true}
+  },
+  "gpio": {
+    "PA8": {
+      "mode": "GPIO_MODE_OUTPUT_PP",
+      "pull": "GPIO_NOPULL",
+      "speed": "GPIO_SPEED_FREQ_LOW",
+      "initial_state": "GPIO_PIN_RESET"
+    },
+    "PA9": {
+      "mode": "GPIO_MODE_OUTPUT_PP",
+      "pull": "GPIO_NOPULL",
+      "speed": "GPIO_SPEED_FREQ_LOW",
+      "initial_state": "GPIO_PIN_RESET"
+    }
+  },
+  "debug": {
+    "interface": "SWD",
+    "frequency": 4000,
+    "reset_mode": "UNDER_RESET"
+  },
+  "build": {
+    "toolchain": "MDK-ARM",
+    "compiler": "ARMCC",
+    "optimization": "-Og",
+    "debug_info": true
   }
 }

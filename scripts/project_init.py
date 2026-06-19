@@ -7,19 +7,24 @@
 - 创建标准项目目录结构
 - 生成配置文件模板
 - 初始化 CubeMX 配置
+- 支持从 GitHub 加载模板
 
 使用示例：
   python project_init.py --name my_project --mcu STM32F407VETx
   python project_init.py --name my_project --mcu STM32F407VETx --template scope_siggen
+  python project_init.py --name my_project --template https://github.com/user/repo/raw/main/templates/scope_siggen.json
 """
 
 from __future__ import annotations
 
 import argparse
 import io
+import json
 import os
 import sys
 from pathlib import Path
+from urllib.request import urlopen, Request
+from urllib.error import URLError
 
 # 编码处理
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -27,6 +32,61 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+
+# ======================== GitHub 模板配置 ========================
+
+GITHUB_REPO = "https://api.github.com/repos/your-username/stm32-project-templates/contents/templates"
+GITHUB_RAW_BASE = "https://raw.githubusercontent.com/your-username/stm32-project-templates/main/templates"
+
+def load_template_from_github(template_name: str) -> dict | None:
+    """从 GitHub 加载模板"""
+    try:
+        # 如果是完整 URL，直接使用
+        if template_name.startswith("http"):
+            url = template_name
+        else:
+            # 否则从仓库加载
+            url = f"{GITHUB_RAW_BASE}/{template_name}.json"
+
+        print(f"📥 从 GitHub 加载模板: {url}")
+        req = Request(url, headers={"User-Agent": "STM32-Project-Init"})
+        with urlopen(req, timeout=10) as response:
+            content = response.read().decode("utf-8")
+            return json.loads(content)
+    except URLError as e:
+        print(f"⚠️ GitHub 加载失败: {e}")
+        return None
+    except json.JSONDecodeError as e:
+        print(f"⚠️ JSON 解析失败: {e}")
+        return None
+
+def load_template_from_local(template_name: str) -> dict | None:
+    """从本地加载模板"""
+    # 获取脚本所在目录
+    script_dir = Path(__file__).parent.parent
+    template_path = script_dir / "templates" / f"{template_name}.json"
+
+    if not template_path.exists():
+        return None
+
+    try:
+        with open(template_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"⚠️ 本地模板加载失败: {e}")
+        return None
+
+def load_template(template_name: str, use_github: bool = True) -> dict | None:
+    """加载模板（优先 GitHub，回退本地）"""
+    template = None
+
+    if use_github:
+        template = load_template_from_github(template_name)
+
+    if template is None:
+        template = load_template_from_local(template_name)
+
+    return template
 
 # ======================== 项目模板 ========================
 
@@ -250,7 +310,7 @@ def create_project_structure(project_dir: str, project_name: str) -> None:
         os.makedirs(full_path, exist_ok=True)
         print(f"✅ 创建目录: {dir_path}")
 
-def create_project_files(project_dir: str, project_name: str) -> None:
+def create_project_files(project_dir: str, project_name: str, template: dict | None = None) -> None:
     """创建项目文件"""
     project_path = os.path.join(project_dir, project_name)
 
@@ -279,11 +339,37 @@ def create_project_files(project_dir: str, project_name: str) -> None:
         f.write(CONFIG_H_TEMPLATE)
     print("✅ 创建文件: Board/config.h")
 
-def create_readme(project_dir: str, project_name: str, mcu: str) -> None:
+    # 如果有模板，创建模板配置文件
+    if template:
+        template_path = os.path.join(project_path, "Board", "template.json")
+        with open(template_path, "w", encoding="utf-8") as f:
+            json.dump(template, f, indent=2, ensure_ascii=False)
+        print("✅ 创建文件: Board/template.json")
+
+def create_readme(project_dir: str, project_name: str, mcu: str, template: dict | None = None) -> None:
     """创建 README 文件"""
+    template_info = ""
+    if template:
+        template_info = f"""
+## 模板信息
+
+- **模板名称**: {template.get('name', 'N/A')}
+- **描述**: {template.get('description', 'N/A')}
+- **外设**: {', '.join(template.get('peripherals', []))}
+
+### 引脚分配
+
+| 引脚 | 功能 | 标签 |
+|------|------|------|
+"""
+        for pin in template.get('pins', []):
+            template_info += f"| {pin.get('pin', 'N/A')} | {pin.get('signal', 'N/A')} | {pin.get('label', 'N/A')} |\n"
+
     readme_content = f"""# {project_name}
 
 基于 {mcu} 的 STM32 项目
+{template_info}
+## 项目结构
 
 ## 项目结构
 
@@ -342,14 +428,18 @@ def build_parser() -> argparse.ArgumentParser:
 示例:
   %(prog)s --name my_project --mcu STM32F407VETx                    # 创建基础项目
   %(prog)s --name my_project --mcu STM32F407VETx --template scope   # 创建示波器项目
+  %(prog)s --name my_project --template scope_siggen                # 从本地加载模板
+  %(prog)s --name my_project --template https://github.com/user/repo/raw/main/templates/scope_siggen.json  # 从 GitHub 加载
         """,
     )
 
     parser.add_argument("--name", required=True, help="项目名称")
     parser.add_argument("--mcu", default="STM32F407VETx", help="MCU 型号")
     parser.add_argument("--dir", default=".", help="项目目录")
-    parser.add_argument("--template", choices=["basic", "scope", "motor"], default="basic",
-                        help="项目模板")
+    parser.add_argument("--template", default="basic",
+                        help="项目模板（本地名称或 GitHub URL）")
+    parser.add_argument("--local-only", action="store_true",
+                        help="仅使用本地模板，不从 GitHub 加载")
 
     return parser
 
@@ -363,14 +453,27 @@ def main() -> int:
     print(f"   模板: {args.template}")
     print()
 
+    # 加载模板
+    use_github = not args.local_only
+    template = load_template(args.template, use_github=use_github)
+
+    if template:
+        print(f"✅ 模板加载成功: {template.get('name', args.template)}")
+        print(f"   描述: {template.get('description', 'N/A')}")
+        print(f"   外设: {', '.join(template.get('peripherals', []))}")
+        print()
+    else:
+        print(f"⚠️ 未找到模板 '{args.template}'，使用默认配置")
+        print()
+
     # 创建项目结构
     create_project_structure(args.dir, args.name)
 
     # 创建项目文件
-    create_project_files(args.dir, args.name)
+    create_project_files(args.dir, args.name, template)
 
     # 创建 README
-    create_readme(args.dir, args.name, args.mcu)
+    create_readme(args.dir, args.name, args.mcu, template)
 
     print()
     print(f"✅ 项目创建成功: {args.name}")

@@ -1,20 +1,60 @@
 {
   "name": "UART 通信配置",
-  "description": "USART1 + USART2 双串口",
+  "description": "USART1 + USART2 双串口通信",
+  "version": "1.0.0",
+  "author": "STM32 Keil Workflow",
   "mcu": "STM32F407VETx",
-  "peripherals": ["USART1", "USART2"],
+  "package": "LQFP100",
+  "clock": {
+    "hse": 8,
+    "sysclk": 168,
+    "ahb": 168,
+    "apb1": 42,
+    "apb2": 84,
+    "pll_m": 8,
+    "pll_n": 336,
+    "pll_p": 2
+  },
+  "peripherals": ["USART1", "USART2", "RCC", "SYS"],
   "pins": [
-    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous"},
-    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous"},
-    {"pin": "PA2", "signal": "USART2_TX", "mode": "Asynchronous"},
-    {"pin": "PA3", "signal": "USART2_RX", "mode": "Asynchronous"}
+    {"pin": "PA9", "signal": "USART1_TX", "mode": "Asynchronous", "label": "UART1_TX", "description": "串口1 发送"},
+    {"pin": "PA10", "signal": "USART1_RX", "mode": "Asynchronous", "label": "UART1_RX", "description": "串口1 接收"},
+    {"pin": "PA2", "signal": "USART2_TX", "mode": "Asynchronous", "label": "UART2_TX", "description": "串口2 发送"},
+    {"pin": "PA3", "signal": "USART2_RX", "mode": "Asynchronous", "label": "UART2_RX", "description": "串口2 接收"},
+    {"pin": "PA13", "signal": "SYS_JTMS-SWDIO", "mode": "Serial_Wire", "label": "SWDIO", "description": "SWD 调试数据线"},
+    {"pin": "PA14", "signal": "SYS_JTCK-SWCLK", "mode": "Serial_Wire", "label": "SWCLK", "description": "SWD 调试时钟线"}
   ],
   "config": {
-    "USART1": {"BaudRate": 115200, "VirtualMode": "VM_ASYNC"},
-    "USART2": {"BaudRate": 115200, "VirtualMode": "VM_ASYNC"}
+    "USART1": {
+      "BaudRate": 115200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX",
+      "OverSampling": "OVERSAMPLING_16"
+    },
+    "USART2": {
+      "BaudRate": 115200,
+      "WordLength": "UART_WORDLENGTH_8B",
+      "StopBits": "UART_STOPBITS_1",
+      "Parity": "UART_PARITY_NONE",
+      "Mode": "MODE_TX_RX",
+      "OverSampling": "OVERSAMPLING_16"
+    }
   },
   "nvic": {
-    "USART1_IRQn": {"priority": 5, "enabled": true},
-    "USART2_IRQn": {"priority": 5, "enabled": true}
+    "USART1_IRQn": {"priority": 5, "subpriority": 0, "enabled": true},
+    "USART2_IRQn": {"priority": 5, "subpriority": 0, "enabled": true}
+  },
+  "debug": {
+    "interface": "SWD",
+    "frequency": 4000,
+    "reset_mode": "UNDER_RESET"
+  },
+  "build": {
+    "toolchain": "MDK-ARM",
+    "compiler": "ARMCC",
+    "optimization": "-Og",
+    "debug_info": true
   }
 }

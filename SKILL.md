@@ -135,6 +135,45 @@ python usb_dfu_flash.py --full --port COM3 --firmware project.hex
 
 **安全约束**：不全片擦除、不写 Option Bytes、不改读保护
 
+## CubeMX 详细配置指南
+
+### 交互式配置助手
+
+```bash
+# 显示完整配置指南
+python cubemx_guide.py
+
+# 列出所有外设配置指南
+python cubemx_guide.py --list
+
+# 显示指定外设配置指南
+python cubemx_guide.py --peripheral ADC1
+python cubemx_guide.py --peripheral DAC
+python cubemx_guide.py --peripheral USART2
+python cubemx_guide.py --peripheral I2C1
+python cubemx_guide.py --peripheral TIM5
+python cubemx_guide.py --peripheral TIM9
+
+# 显示项目模板配置指南
+python cubemx_guide.py --template scope_siggen
+```
+
+### 配置步骤概览
+
+```
+1. 项目创建 → 选择芯片 STM32F407VETx
+2. 引脚配置 → ADC1(PA6), DAC(PA4), USART2(PA2/PA3), I2C1(PB6/PB7)
+3. 时钟配置 → HSE=8MHz, SYSCLK=168MHz, APB1=42MHz, APB2=84MHz
+4. 外设配置 → ADC1(12bit, TIM9触发), DAC(TIM5触发), USART2(115200)
+5. NVIC 配置 → 优先级: UART(5), TIM(6)
+6. 项目管理 → 选择 MDK-ARM V5
+7. 代码生成 → 点击 GENERATE CODE
+```
+
+### 详细配置文档
+
+完整配置指南见：`references/cubemx_configuration_guide.md`
+
 ## CubeMX 配置
 
 ### 能力说明
@@ -204,19 +243,28 @@ python cubemx_config.py --generate project.ioc --toolchain "MDK-ARM V5"
 
 ### 配置模板
 
-| 模板 | 说明 |
-|------|------|
-| `templates/basic_gpio.json` | LED + 按键 |
-| `templates/uart_comm.json` | 双串口通信 |
-| `templates/i2c_sensor.json` | I2C 传感器 |
-| `templates/pwm_motor.json` | PWM 电机控制 |
-| `templates/adc_dma.json` | ADC DMA 采集 |
-| `templates/freertos_basic.json` | FreeRTOS 基础任务 |
-| `templates/scope_siggen.json` | 串口示波器 + 信号发生器 |
-| `templates/encoder_motor.json` | 编码器 + 电机控制 |
-| `templates/sensor_logger.json` | 传感器数据记录器 |
-| `templates/freertos_config.h` | FreeRTOS 配置文件模板 |
-| `templates/bootloader/` | USB DFU Bootloader 模板 |
+| 模板 | 说明 | 优化状态 |
+|------|------|----------|
+| `templates/basic_gpio.json` | LED + 按键 | ✅ 已优化 |
+| `templates/uart_comm.json` | 双串口通信 | ✅ 已优化 |
+| `templates/i2c_sensor.json` | I2C 传感器 | ⏳ 待优化 |
+| `templates/pwm_motor.json` | PWM 电机控制 | ⏳ 待优化 |
+| `templates/adc_dma.json` | ADC DMA 采集 | ⏳ 待优化 |
+| `templates/freertos_basic.json` | FreeRTOS 基础任务 | ⏳ 待优化 |
+| `templates/scope_siggen.json` | 串口示波器 + 信号发生器 | ✅ 已优化 |
+| `templates/encoder_motor.json` | 编码器 + 电机控制 | ⏳ 待优化 |
+| `templates/sensor_logger.json` | 传感器数据记录器 | ⏳ 待优化 |
+| `templates/freertos_config.h` | FreeRTOS 配置文件模板 | ⏳ 待优化 |
+| `templates/bootloader/` | USB DFU Bootloader 模板 | ⏳ 待优化 |
+
+**优化内容：**
+- 完整的时钟配置
+- 标准化引脚定义
+- 完整的 NVIC 配置
+- 调试接口配置
+- 构建配置
+
+详见 `templates/OPTIMIZATION_GUIDE.md`
 
 ## 串口验证
 
