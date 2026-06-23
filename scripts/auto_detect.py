@@ -10,6 +10,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+# 检测结果缓存（同一目录只检测一次）
+_detect_cache: dict[str, dict | None] = {}
+
 
 def find_detect_config() -> str | None:
     """查找 detect_config.py 脚本路径。"""
@@ -20,32 +23,67 @@ def find_detect_config() -> str | None:
     return None
 
 
-def auto_detect_config(project_dir: str) -> dict | None:
+def auto_detect_config(project_dir: str, verbose: bool = False, use_cache: bool = True) -> dict | None:
     """自动检测项目配置。
 
     Args:
         project_dir: 项目根目录路径
+        verbose: 是否输出详细信息
+        use_cache: 是否使用缓存
 
     Returns:
         配置字典，失败返回 None
     """
+    # 检查缓存
+    project_path = Path(project_dir).resolve()
+    cache_key = str(project_path)
+    if use_cache and cache_key in _detect_cache:
+        return _detect_cache[cache_key]
+
     detect_script = find_detect_config()
     if not detect_script:
+        if verbose:
+            print("⚠️ detect_config.py 未找到", file=sys.stderr)
         return None
 
+    if not project_path.exists():
+        if verbose:
+            print(f"⚠️ 目录不存在: {project_dir}", file=sys.stderr)
+        return None
+
+    config = None
     try:
         proc = subprocess.run(
-            [sys.executable, detect_script, "--scan", project_dir],
+            [sys.executable, detect_script, "--scan", str(project_path)],
             capture_output=True, text=True, timeout=30,
         )
         if proc.returncode == 0 and proc.stdout.strip():
             config = json.loads(proc.stdout)
-            if "error" not in config:
-                return config
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
-        pass
+            if "error" in config:
+                if verbose:
+                    print(f"⚠️ 检测失败: {config['error']}", file=sys.stderr)
+                config = None
+            elif verbose:
+                print(f"✅ 检测成功: {project_path}", file=sys.stderr)
+        elif verbose:
+            print(f"⚠️ detect_config.py 返回码: {proc.returncode}", file=sys.stderr)
+            if proc.stderr:
+                print(f"  stderr: {proc.stderr[:200]}", file=sys.stderr)
+    except subprocess.TimeoutExpired:
+        if verbose:
+            print("⚠️ 检测超时 (30s)", file=sys.stderr)
+    except json.JSONDecodeError as e:
+        if verbose:
+            print(f"⚠️ JSON 解析失败: {e}", file=sys.stderr)
+    except FileNotFoundError:
+        if verbose:
+            print(f"⚠️ Python 未找到: {sys.executable}", file=sys.stderr)
 
-    return None
+    # 存入缓存
+    if use_cache:
+        _detect_cache[cache_key] = config
+
+    return config
 
 
 def resolve_paths(config: dict, project_dir: str) -> dict:

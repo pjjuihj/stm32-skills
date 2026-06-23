@@ -29,22 +29,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-
-def find_fromelf(uv4_path: str | None = None) -> str | None:
-    """查找 fromelf 工具路径（优先 Keil 自带）。"""
-    import shutil
-
-    if uv4_path:
-        keil_root = Path(uv4_path).parent.parent
-        for pattern in [
-            "ARM/ARMCLANG/bin/fromelf.exe",
-            "ARM/ARMCC/bin/fromelf.exe",
-        ]:
-            for candidate in keil_root.glob(pattern):
-                if candidate.exists():
-                    return str(candidate)
-
-    return shutil.which("fromelf")
+# 使用共享模块
+from shared import find_fromelf
 
 
 def find_arm_tools() -> dict[str, str | None]:

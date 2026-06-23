@@ -54,43 +54,8 @@ RAM_BASE = 0x20000000
 RAM_END = 0x2001FFFF    # 128KB
 
 
-def find_fromelf(uv4_path: str | None = None) -> str | None:
-    """查找 fromelf 工具路径（Keil 自带）。"""
-    if uv4_path:
-        keil_root = Path(uv4_path).parent.parent
-        for pattern in [
-            "ARM/ARMCLANG/bin/fromelf.exe",
-            "ARM/ARMCC/bin/fromelf.exe",
-        ]:
-            for candidate in keil_root.glob(pattern):
-                if candidate.exists():
-                    return str(candidate)
-
-    import shutil
-    return shutil.which("fromelf")
-
-
-def find_programmer(explicit_path: str | None = None) -> str | None:
-    """查找 STM32_Programmer_CLI 路径。"""
-    if explicit_path:
-        p = Path(explicit_path)
-        if p.exists():
-            return str(p)
-        return None
-
-    candidates = [
-        r"C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer\bin\STM32_Programmer_CLI.exe",
-        os.path.expandvars(
-            r"C:\Users\%USERNAME%\.eide\tools\st_cube_programer\bin\STM32_Programmer_CLI.exe"
-        ),
-    ]
-
-    for candidate in candidates:
-        if Path(candidate).exists():
-            return candidate
-
-    import shutil
-    return shutil.which("STM32_Programmer_CLI")
+# 使用共享模块
+from shared import find_fromelf, find_programmer
 
 
 def extract_symbols_fromelf(elf_path: Path, fromelf_path: str) -> dict[str, dict]:

@@ -805,6 +805,18 @@ def fix_errors(errors: list[dict[str, Any]], project_dir: str) -> list[dict[str,
 
 # ======================== CLI ========================
 
+def find_build_log(project_dir: str) -> str | None:
+    """自动查找 build.log 文件。"""
+    candidates = [
+        os.path.join(project_dir, "build.log"),
+        os.path.join(project_dir, "MDK-ARM", "build.log"),
+    ]
+    for candidate in candidates:
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="STM32 编译错误自动修复工具",
@@ -813,13 +825,16 @@ def build_parser() -> argparse.ArgumentParser:
 示例:
   %(prog)s --log build.log --project .                    # 分析错误
   %(prog)s --log build.log --project . --auto-fix         # 自动修复
+  %(prog)s --auto . --auto-fix                            # 自动检测 build.log 并修复
         """,
     )
 
-    parser.add_argument("--log", required=True, help="build.log 文件路径")
+    parser.add_argument("--auto", metavar="PROJECT_DIR",
+                        help="自动检测项目配置并查找 build.log（指定项目根目录）")
+    parser.add_argument("--log", help="build.log 文件路径（--auto 模式下可省略）")
     parser.add_argument("--project", default=".", help="项目根目录")
     parser.add_argument("--auto-fix", action="store_true", help="自动修复错误")
-    parser.add_argument("--json", action="store_true", help="输出 JSON 格式")
+    parser.add_argument("--text", action="store_true", help="输出人类可读文本格式（默认输出 JSON）")
 
     return parser
 
@@ -828,29 +843,59 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
+    # --auto 模式：自动查找 build.log
+    if args.auto:
+        args.project = args.auto
+        if not args.log:
+            args.log = find_build_log(args.auto)
+            if not args.log:
+                print(f"❌ 在 {args.auto} 中未找到 build.log", file=sys.stderr)
+                return 1
+            print(f"自动找到 build.log: {args.log}")
+
+    if not args.log:
+        parser.error("请指定 --log <build.log路径> 或 --auto <项目目录>")
+
     # 解析错误
     errors = parse_build_log(args.log)
 
     if not errors:
-        print("✅ 未发现编译错误")
+        if args.text:
+            print("✅ 未发现编译错误")
+        else:
+            from shared import output_json
+            output_json({"success": True, "errors": [], "fixes": [], "message": "未发现编译错误"})
         return 0
 
-    print(f"📊 发现 {len(errors)} 个错误：")
-    for i, error in enumerate(errors, 1):
-        print(f"  {i}. [{error['type']}] {error['description']}")
-        print(f"     {error['message']}")
-
     # 自动修复
+    fixes = []
     if args.auto_fix:
-        print("\n🔧 开始自动修复...")
         fixes = fix_errors(errors, args.project)
 
-        if fixes:
-            print(f"\n✅ 完成 {len(fixes)} 项修复：")
-            for fix in fixes:
-                print(f"  - {fix['description']}")
-        else:
-            print("\n⚠️ 没有可自动修复的错误")
+    # 输出结果
+    if args.text:
+        # 人类可读格式
+        print(f"📊 发现 {len(errors)} 个错误：")
+        for i, error in enumerate(errors, 1):
+            print(f"  {i}. [{error['type']}] {error['description']}")
+            print(f"     {error['message']}")
+        if args.auto_fix:
+            if fixes:
+                print(f"\n✅ 完成 {len(fixes)} 项修复：")
+                for fix in fixes:
+                    print(f"  - {fix['description']}")
+            else:
+                print("\n⚠️ 没有可自动修复的错误")
+    else:
+        # JSON 格式
+        from shared import output_json
+        output_json({
+            "success": True,
+            "errors": errors,
+            "fixes": fixes,
+            "error_count": len(errors),
+            "fix_count": len(fixes),
+        })
 
     return 0
 

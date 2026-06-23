@@ -1,0 +1,55 @@
+{
+  "project_dir": "",
+  "device": "STM32F103C8",
+  "steps": {
+    "analyze": {
+      "check_elf": {
+        "path": "C:\\Users\\CMJ\\Desktop\\STM32project\\3-1 led闪烁\\Objects\\project.axf",
+        "name": "project.axf",
+        "size_bytes": 261912,
+        "timestamp": "2025-01-10T21:22:05.346811",
+        "size": {
+          "text": 1156,
+          "data": 0,
+          "bss": 0,
+          "ro_data": 252,
+          "dec": 1156,
+          "tool": "fromelf -z (ROM Totals)"
+        },
+        "flash_usage_kb": 1.1,
+        "ram_usage_kb": 0.0,
+        "tools": {
+          "fromelf": "D:\\k5\\ARM\\ARMCLANG\\bin\\fromelf.exe",
+          "arm_size": "D:\\arm-gnu-toolchain-15.2\\arm-gnu-toolchain-15.2.rel1-mingw-w64-i686-arm-none-eabi\\bin\\arm-none-eabi-size.EXE",
+          "arm_nm": "D:\\arm-gnu-toolchain-15.2\\arm-gnu-toolchain-15.2.rel1-mingw-w64-i686-arm-none-eabi\\bin\\arm-none-eabi-nm.EXE"
+        }
+      },
+      "debug_sim": {
+        "tool": "fromelf",
+        "mode": "sim",
+        "elf_path": "C:\\Users\\CMJ\\Desktop\\STM32project\\3-1 led闪烁\\Objects\\project.axf",
+        "checks": [
+          "vector_table",
+          "stack_heap",
+          "critical_symbols"
+        ],
+        "issues": [],
+        "summary": {
+          "total_checks": 3,
+          "errors": 0,
+          "warnings": 0,
+          "passed": true
+        },
+        "symbol_count": 124,
+        "sections_preview": "\n========================================================================\n\n** ELF Header Information\n\n    File Name: C:\\Users\\CMJ\\Desktop\\STM32project\\3-1 led闪烁\\Objects\\project.axf\n\n    Machine class: ELFCLASS32 (32-bit)\n    Data encoding: ELFDATA2LSB (Little endian)\n    Header version: EV_CURRENT (Current version)\n    Operating System ABI: none\n    ABI Version: 0\n    File Type: ET_EXEC (Executable) (2)\n    Machine: EM_ARM (ARM)\n\n    Image Entry point: 0x080000ed\n    Flags: EF_ARM_HASENTRY + EF_ARM_ABI_FLOAT_SOFT (0x05000202)\n\n    ARM ELF revision: 5 (ABI version 2)\n\n    Conforms to Soft float procedure-call standard\n\n    Built with\n    Component: ARM Compiler 5.06 update 5 (build 528) Tool: armasm [4d35e1]\n    Component: ARM Compiler 5.06 update 5 (build 528) Tool: armlink [4d35e2]\n\n    Header size: 52 bytes (0x34)\n    Program header entry size: 32 bytes (0x20)\n    Section header entry size: 40 bytes (0x28)\n\n    Program header entries: 1\n    Section header entries: 15\n\n    Program header offset: 261280 (0x0003fca0)\n    Section header offset: 261312 (0x0003fcc0)\n\n    Section header string table index: 14\n\n========================================================================\n\n** Program header #0\n\n    Type          : PT_LOAD (1)\n    File Offset   : 52 (0x34)\n    Virtual Addr  : 0x08000000\n    Physical Addr : 0x08000000\n    Size in file  : 1408 bytes (0x580)\n    Size in memory: 3040 bytes (0xbe0)\n    Flags         : PF_X + PF_W + PF_R + PF_ARM_ENTRY (0x80000007)\n    Alignment     : 8\n\n\n========================================================================\n\n** Section #1\n\n    Name        : ER_IROM1\n    Type        : SHT_PROGBITS (0x00000001)\n    Flags       : SHF_ALLOC + SHF_EXECINSTR (0x00000006)\n    Addr        : 0x08000000\n    File Offset : 52 (0x34)\n    Size        : 1408 bytes (0x580)\n    Link        : SHN_UNDEF\n    Info        : 0\n    Alignment   : 4\n    Entry Size  : 0\n\n\n====================================\n\n** Section #2\n\n    Name        : RW_IRAM1\n    Typ",
+        "key_symbols": {
+          "main": "0x08000519",
+          "SystemInit": "0x080004b5",
+          "HardFault_Handler": "0x08000397",
+          "Reset_Handler": "0x0800016d"
+        }
+      }
+    }
+  },
+  "timestamp": "2026-06-23T22:40:59.458361"
+}

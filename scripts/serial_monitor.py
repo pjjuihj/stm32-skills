@@ -28,6 +28,7 @@ import json
 import re
 import struct
 import sys
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -135,6 +136,30 @@ PARSERS = {
 }
 
 
+# === 实时日志 ===
+
+class LogWriter:
+    """实时日志写入器，每条数据立即写入文件。"""
+
+    def __init__(self, path: str):
+        self._file = open(path, "a", encoding="utf-8")
+        self._count = 0
+
+    def write(self, entry: dict):
+        """写入一条日志记录并立即刷新。"""
+        line = json.dumps(entry, ensure_ascii=False)
+        self._file.write(line + "\n")
+        self._file.flush()
+        self._count += 1
+
+    @property
+    def count(self):
+        return self._count
+
+    def close(self):
+        self._file.close()
+
+
 # === 核心功能 ===
 
 def list_ports() -> list[dict]:
@@ -150,45 +175,236 @@ def open_serial(port: str, baud: int, timeout: float = 1.0) -> serial.Serial:
     return serial.Serial(port=port, baudrate=baud, timeout=timeout)
 
 
-def cmd_monitor(ser: serial.Serial, duration: float, protocol: str, output: str | None) -> dict:
-    """持续接收并显示数据。"""
+def cmd_monitor(ser: serial.Serial, duration: float, protocol: str, output: str | None,
+                log_writer: LogWriter | None = None, keyword: str | None = None) -> dict:
+    """持续接收并显示数据。
+
+    Args:
+        ser: 串口对象
+        duration: 监听时长（秒）
+        protocol: 协议类型
+        output: 结束后保存的 JSON 文件路径
+        log_writer: 实时日志写入器（每条数据立即写入文件）
+        keyword: 过滤关键字（只显示包含此关键字的行）
+    """
     parser = PARSERS.get(protocol, parse_raw)
     log = []
     start = time.time()
 
     print(f"监听 {ser.port} @ {ser.baudrate} bps，协议: {protocol}，时长: {duration}s")
+    if keyword:
+        print(f"过滤: 包含 '{keyword}' 的数据")
+    if log_writer:
+        print(f"实时日志: 启用")
+    print("-" * 60)
+    print("按 Ctrl+C 停止监听")
     print("-" * 60)
 
-    while time.time() - start < duration:
-        data = ser.read(ser.in_waiting or 1)
-        if not data:
-            continue
+    try:
+        while time.time() - start < duration:
+            data = ser.read(ser.in_waiting or 1)
+            if not data:
+                continue
 
-        ts = time.time() - start
-        parsed = parser(data)
+            ts = time.time() - start
+            parsed = parser(data)
 
-        for item in parsed:
-            entry = {"timestamp": round(ts, 3), **item}
-            log.append(entry)
+            for item in parsed:
+                entry = {"timestamp": round(ts, 3), **item}
+                log.append(entry)
 
-            if protocol == "raw":
-                print(f"[{ts:8.3f}] {item['hex']}  |{item['ascii']}|")
-            elif protocol == "text":
-                print(f"[{ts:8.3f}] {item['line']}")
-            elif "vofa" in protocol:
-                vals = " ".join(f"{v:.4f}" for v in item.get("values", []))
-                print(f"[{ts:8.3f}] {vals}")
-            elif protocol == "custom":
-                print(f"[{ts:8.3f}] [{item['size']}B] {item['payload']}")
+                # 关键字过滤
+                if keyword:
+                    text_repr = json.dumps(entry, ensure_ascii=False)
+                    if keyword.lower() not in text_repr.lower():
+                        continue
+
+                # 实时日志
+                if log_writer:
+                    log_writer.write(entry)
+
+                # 显示
+                if protocol == "raw":
+                    print(f"[{ts:8.3f}] {item['hex']}  |{item['ascii']}|")
+                elif protocol == "text":
+                    print(f"[{ts:8.3f}] {item['line']}")
+                elif "vofa" in protocol:
+                    vals = " ".join(f"{v:.4f}" for v in item.get("values", []))
+                    print(f"[{ts:8.3f}] {vals}")
+                elif protocol == "custom":
+                    print(f"[{ts:8.3f}] [{item['size']}B] {item['payload']}")
+    except KeyboardInterrupt:
+        pass
 
     print("-" * 60)
     print(f"接收完成: {len(log)} 条数据")
+    if log_writer:
+        print(f"实时日志已写入: {log_writer.count} 条")
 
     if output:
         Path(output).write_text(json.dumps(log, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"日志已保存: {output}")
 
-    return {"mode": "monitor", "protocol": protocol, "entries": len(log), "duration": duration, "log": log}
+    return {"mode": "monitor", "protocol": protocol, "entries": len(log), "duration": time.time() - start, "log": log}
+
+
+def cmd_interactive(ser: serial.Serial, protocol: str, log_writer: LogWriter | None = None,
+                    keyword: str | None = None) -> dict:
+    """交互模式：监听串口数据的同时可以输入命令发送。
+
+    支持:
+      - 文本输入直接发送（自动附加 \\r\\n）
+      - /hex FF 01 02 发送十六进制字节
+      - /baud 9600 切换波特率
+      - /log on|off 开关实时日志
+      - /filter <keyword> 设置过滤关键字
+      - /clear 清屏
+      - /quit 退出
+
+    Args:
+        ser: 串口对象
+        protocol: 接收数据的协议类型
+        log_writer: 实时日志写入器
+        keyword: 过滤关键字
+    """
+    parser = PARSERS.get(protocol, parse_raw)
+    log = []
+    start = time.time()
+    running = True
+    current_keyword = keyword
+
+    def reader_thread():
+        """后台线程：持续读取串口数据并显示。"""
+        nonlocal running
+        while running:
+            try:
+                data = ser.read(ser.in_waiting or 1)
+                if not data:
+                    continue
+
+                ts = time.time() - start
+                parsed = parser(data)
+
+                for item in parsed:
+                    entry = {"timestamp": round(ts, 3), **item}
+                    log.append(entry)
+
+                    # 关键字过滤
+                    if current_keyword:
+                        text_repr = json.dumps(entry, ensure_ascii=False)
+                        if current_keyword.lower() not in text_repr.lower():
+                            continue
+
+                    # 实时日志
+                    if log_writer:
+                        log_writer.write(entry)
+
+                    # 显示（使用前缀标记来自设备）
+                    if protocol == "raw":
+                        print(f"\r[DEV {ts:8.3f}] {item['hex']}  |{item['ascii']}|")
+                    elif protocol == "text":
+                        print(f"\r[DEV {ts:8.3f}] {item['line']}")
+                    elif "vofa" in protocol:
+                        vals = " ".join(f"{v:.4f}" for v in item.get("values", []))
+                        print(f"\r[DEV {ts:8.3f}] {vals}")
+                    elif protocol == "custom":
+                        print(f"\r[DEV {ts:8.3f}] [{item['size']}B] {item['payload']}")
+
+                    # 重新显示输入提示
+                    sys.stdout.write("> ")
+                    sys.stdout.flush()
+            except (serial.SerialException, OSError):
+                if running:
+                    print("\r\n⚠️ 串口连接断开")
+                    running = False
+                break
+
+    # 启动读取线程
+    reader = threading.Thread(target=reader_thread, daemon=True)
+    reader.start()
+
+    print(f"交互模式: {ser.port} @ {ser.baudrate} bps，协议: {protocol}")
+    if current_keyword:
+        print(f"过滤: 包含 '{current_keyword}' 的数据")
+    print("-" * 60)
+    print("输入文本发送，或使用命令:")
+    print("  /hex FF 01 02    发送十六进制字节")
+    print("  /baud 9600       切换波特率")
+    print("  /filter <keyword> 设置过滤关键字")
+    print("  /log on|off       开关实时日志")
+    print("  /clear            清屏")
+    print("  /quit             退出")
+    print("-" * 60)
+
+    try:
+        while running:
+            try:
+                line = input("> ")
+            except EOFError:
+                break
+
+            line = line.strip()
+            if not line:
+                continue
+
+            # 命令处理
+            if line.startswith("/"):
+                parts = line.split(maxsplit=1)
+                cmd = parts[0].lower()
+                arg = parts[1] if len(parts) > 1 else ""
+
+                if cmd == "/quit":
+                    break
+                elif cmd == "/hex":
+                    try:
+                        hex_bytes = bytes.fromhex(arg.replace(" ", ""))
+                        ser.write(hex_bytes)
+                        print(f"[TX] {hex_bytes.hex(' ')}")
+                    except ValueError:
+                        print(f"错误: 无效的十六进制 '{arg}'")
+                elif cmd == "/baud":
+                    try:
+                        new_baud = int(arg)
+                        ser.baudrate = new_baud
+                        print(f"波特率已切换: {new_baud}")
+                    except ValueError:
+                        print(f"错误: 无效的波特率 '{arg}'")
+                elif cmd == "/filter":
+                    current_keyword = arg if arg else None
+                    if current_keyword:
+                        print(f"过滤已设置: '{current_keyword}'")
+                    else:
+                        print("过滤已清除")
+                elif cmd == "/log":
+                    if arg == "on" and log_writer:
+                        print("实时日志: 已启用")
+                    elif arg == "off":
+                        # 不关闭 writer，只是标记
+                        print("实时日志: 已禁用（文件仍打开，重启后生效）")
+                    else:
+                        print(f"用法: /log on|off")
+                elif cmd == "/clear":
+                    print("\033[2J\033[H", end="")
+                else:
+                    print(f"未知命令: {cmd}")
+                continue
+
+            # 文本发送（自动附加 \r\n）
+            send_bytes = line.encode("utf-8") + b"\r\n"
+            ser.write(send_bytes)
+            ts = time.time() - start
+            print(f"[TX {ts:8.3f}] {line}")
+
+    except KeyboardInterrupt:
+        pass
+
+    running = False
+    reader.join(timeout=2)
+
+    print("-" * 60)
+    print(f"交互结束: {len(log)} 条接收数据")
+
+    return {"mode": "interactive", "protocol": protocol, "entries": len(log), "duration": time.time() - start}
 
 
 def cmd_send(ser: serial.Serial, send_data: str, wait: float, protocol: str, output: str | None) -> dict:
@@ -346,32 +562,69 @@ def cmd_stress(ser: serial.Serial, duration: float, protocol: str, output: str |
 # === 主函数 ===
 
 def main() -> int:
+    from shared import setup_encoding
+    setup_encoding()
     parser = argparse.ArgumentParser(
         description="STM32 串口验证工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""示例:
   %(prog)s --list                                    # 列出可用串口
-  %(prog)s --port COM3 --baud 115200 --mode monitor --duration 10
-  %(prog)s --port COM3 --baud 115200 --mode send --send "T\\\\r" --wait 2
-  %(prog)s --port COM3 --baud 115200 --mode parse --protocol vofa-firewater --duration 10
-  %(prog)s --port COM3 --baud 115200 --mode test --test-file tests.json
-  %(prog)s --port COM3 --baud 115200 --mode stress --duration 60
+  %(prog)s --port COM3 --mode monitor --duration 10              # 监听 10 秒
+  %(prog)s --port COM3 --mode interactive                        # 交互模式（边收边发）
+  %(prog)s --port COM3 --mode monitor --log-file uart.log       # 监听+实时写入日志
+  %(prog)s --port COM3 --mode monitor --filter "error"          # 只显示含 error 的数据
+  %(prog)s --port COM3 --mode send --send "T\\\\r" --wait 2
+  %(prog)s --port COM3 --mode parse --protocol vofa-firewater --duration 10
+  %(prog)s --port COM3 --mode test --test-file tests.json
+  %(prog)s --port COM3 --mode stress --duration 60
 """,
     )
+    parser.add_argument("--auto", metavar="PROJECT_DIR",
+                        help="自动检测项目配置并列出可用串口（指定项目根目录）")
     parser.add_argument("--list", action="store_true", help="列出可用串口")
     parser.add_argument("--port", help="串口号 (如 COM3)")
     parser.add_argument("--baud", type=int, default=115200, help="波特率 (默认 115200)")
-    parser.add_argument("--mode", choices=["monitor", "send", "parse", "test", "stress"], default="monitor", help="工作模式")
+    parser.add_argument("--mode", choices=["monitor", "send", "parse", "test", "stress", "interactive"], default="monitor", help="工作模式 (monitor/interactive/send/parse/test/stress)")
     parser.add_argument("--protocol", choices=["raw", "text", "vofa-firewater", "vofa-justfloat", "custom"], default="text", help="协议类型")
     parser.add_argument("--duration", type=float, default=10, help="监听/测试时长 (秒)")
     parser.add_argument("--send", help="要发送的数据")
     parser.add_argument("--wait", type=float, default=2, help="发送后等待时间 (秒)")
     parser.add_argument("--test-file", help="测试用例 JSON 文件")
-    parser.add_argument("--output", help="输出 JSON 文件路径")
+    parser.add_argument("--output", help="输出 JSON 文件路径（结束后保存）")
+    parser.add_argument("--log-file", help="实时日志文件路径（接收时立即写入）")
+    parser.add_argument("--filter", help="过滤关键字（只显示包含此关键字的数据）")
     parser.add_argument("--frame-header", help="自定义帧头 (十六进制)")
     parser.add_argument("--frame-tail", help="自定义帧尾 (十六进制)")
     parser.add_argument("--frame-size", type=int, help="自定义帧载荷大小 (固定长度模式)")
     args = parser.parse_args()
+
+    # --auto 模式：列出串口并显示项目信息
+    if args.auto:
+        # 列出可用串口
+        ports = list_ports()
+        if not ports:
+            print("未找到可用串口")
+            return 1
+        print("可用串口:")
+        for p in ports:
+            print(f"  {p['port']}: {p['description']} ({p['hwid']})")
+        # 尝试检测项目中的波特率配置
+        try:
+            import subprocess
+            detect_script = Path(__file__).parent / "detect_config.py"
+            if detect_script.exists():
+                proc = subprocess.run(
+                    [sys.executable, str(detect_script), "--scan", args.auto],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if proc.returncode == 0:
+                    config = json.loads(proc.stdout)
+                    if "device" in config:
+                        print(f"\n项目芯片: {config['device']}")
+        except Exception:
+            pass
+        print(f"\n提示: 使用 --port <串口号> 连接设备")
+        return 0
 
     # 列出串口
     if args.list:
@@ -408,16 +661,26 @@ def main() -> int:
 
     print(f"已连接: {args.port} @ {args.baud} bps")
 
+    # 创建实时日志写入器
+    log_writer = None
+    if args.log_file:
+        log_writer = LogWriter(args.log_file)
+        print(f"实时日志: {args.log_file}")
+
     try:
         if args.mode == "monitor":
-            result = cmd_monitor(ser, args.duration, args.protocol, args.output)
+            result = cmd_monitor(ser, args.duration, args.protocol, args.output,
+                                 log_writer=log_writer, keyword=args.filter)
+        elif args.mode == "interactive":
+            result = cmd_interactive(ser, args.protocol, log_writer=log_writer, keyword=args.filter)
         elif args.mode == "send":
             if not args.send:
                 print("错误: send 模式需要 --send", file=sys.stderr)
                 return 1
             result = cmd_send(ser, args.send, args.wait, args.protocol, args.output)
         elif args.mode == "parse":
-            result = cmd_monitor(ser, args.duration, args.protocol, args.output)
+            result = cmd_monitor(ser, args.duration, args.protocol, args.output,
+                                 log_writer=log_writer, keyword=args.filter)
         elif args.mode == "test":
             if not args.test_file:
                 print("错误: test 模式需要 --test-file", file=sys.stderr)
@@ -429,6 +692,9 @@ def main() -> int:
             print(f"错误: 未知模式 {args.mode}", file=sys.stderr)
             return 1
     finally:
+        if log_writer:
+            log_writer.close()
+            print(f"实时日志已关闭: {log_writer.count} 条记录")
         ser.close()
 
     # 输出 JSON

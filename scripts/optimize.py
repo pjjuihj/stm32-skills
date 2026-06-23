@@ -29,19 +29,9 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+# 使用共享模块
+from shared import find_fromelf, lookup_chip, CHIP_DB
 
-# STM32 芯片 Flash/RAM 容量表
-CHIP_MEMORY = {
-    "STM32F407VETx": {"flash_kb": 512, "ram_kb": 112, "ccm_kb": 64},
-    "STM32F407VGTx": {"flash_kb": 1024, "ram_kb": 112, "ccm_kb": 64},
-    "STM32F407VET6": {"flash_kb": 512, "ram_kb": 112, "ccm_kb": 64},
-    "STM32F407VGT6": {"flash_kb": 1024, "ram_kb": 112, "ccm_kb": 64},
-    "STM32F405RGTx": {"flash_kb": 1024, "ram_kb": 112, "ccm_kb": 64},
-    "STM32F401CCU6": {"flash_kb": 256, "ram_kb": 64, "ccm_kb": 0},
-    "STM32F411CEU6": {"flash_kb": 512, "ram_kb": 128, "ccm_kb": 0},
-    "STM32F429ZITx": {"flash_kb": 2048, "ram_kb": 256, "ccm_kb": 64},
-    "STM32F446RETx": {"flash_kb": 512, "ram_kb": 128, "ccm_kb": 64},
-}
 
 # ARMClang 优化级别映射
 OPTIM_LEVELS = {
@@ -54,16 +44,6 @@ OPTIM_LEVELS = {
 
 
 # === 工具函数 ===
-
-def find_fromelf(uv4_path: str | None = None) -> str | None:
-    """查找 fromelf 工具。"""
-    if uv4_path:
-        keil_root = Path(uv4_path).parent.parent
-        for pattern in ["ARM/ARMCLANG/bin/fromelf.exe", "ARM/ARMCC/bin/fromelf.exe"]:
-            for candidate in keil_root.glob(pattern):
-                if candidate.exists():
-                    return str(candidate)
-    return shutil.which("fromelf")
 
 
 def run_cmd(cmd: list[str], timeout: int = 30) -> tuple[str, str, int]:
@@ -133,19 +113,17 @@ def analyze_memory(elf_path: Path, fromelf_path: str, chip: str | None = None) -
 
     # 芯片容量和使用率
     if chip:
-        chip_upper = chip.upper()
-        for key, mem in CHIP_MEMORY.items():
-            if key.upper() == chip_upper:
-                if result["flash"]:
-                    result["flash"]["total_chip_kb"] = mem["flash_kb"]
-                    result["flash"]["usage_pct"] = round(result["flash"]["total_kb"] / mem["flash_kb"] * 100, 1)
-                    result["flash"]["remaining_kb"] = round(mem["flash_kb"] - result["flash"]["total_kb"], 1)
-                if result["ram"]:
-                    result["ram"]["total_chip_kb"] = mem["ram_kb"]
-                    result["ram"]["usage_pct"] = round(result["ram"]["total_kb"] / mem["ram_kb"] * 100, 1)
-                    result["ram"]["remaining_kb"] = round(mem["ram_kb"] - result["ram"]["total_kb"], 1)
-                result["ccm_kb"] = mem.get("ccm_kb", 0)
-                break
+        mem = lookup_chip(chip)
+        if mem:
+            if result["flash"]:
+                result["flash"]["total_chip_kb"] = mem["flash_kb"]
+                result["flash"]["usage_pct"] = round(result["flash"]["total_kb"] / mem["flash_kb"] * 100, 1)
+                result["flash"]["remaining_kb"] = round(mem["flash_kb"] - result["flash"]["total_kb"], 1)
+            if result["ram"]:
+                result["ram"]["total_chip_kb"] = mem["ram_kb"]
+                result["ram"]["usage_pct"] = round(result["ram"]["total_kb"] / mem["ram_kb"] * 100, 1)
+                result["ram"]["remaining_kb"] = round(mem["ram_kb"] - result["ram"]["total_kb"], 1)
+            result["ccm_kb"] = mem.get("ccm_kb", 0)
 
     return result
 
