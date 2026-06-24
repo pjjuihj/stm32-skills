@@ -474,6 +474,357 @@ def debug_batch(ser: serial.Serial, proto: str, batch_file: str,
     return results
 
 
+# === 数据分析功能 ===
+
+def parse_values_from_text(text: str) -> list[float]:
+    """从文本中提取数值。
+
+    支持格式:
+      "temp:25.5,humidity:60.2"
+      "25.5,60.2,101.3"
+      "ADC:2048"
+    """
+    values = []
+    # 尝试提取所有数值
+    import re
+    # 匹配整数和浮点数
+    pattern = r'-?\d+\.?\d*'
+    matches = re.findall(pattern, text)
+    for match in matches:
+        try:
+            values.append(float(match))
+        except ValueError:
+            continue
+    return values
+
+
+def analyze_data_range(values: list[float], min_val: float = None,
+                       max_val: float = None) -> dict:
+    """分析数据范围。
+
+    Args:
+        values: 数值列表
+        min_val: 最小值阈值（可选）
+        max_val: 最大值阈值（可选）
+
+    Returns:
+        分析结果
+    """
+    if not values:
+        return {"error": "没有数据"}
+
+    result = {
+        "count": len(values),
+        "min": min(values),
+        "max": max(values),
+        "mean": sum(values) / len(values),
+        "range": max(values) - min(values),
+        "out_of_range": [],
+    }
+
+    # 检查范围
+    if min_val is not None or max_val is not None:
+        for i, v in enumerate(values):
+            if min_val is not None and v < min_val:
+                result["out_of_range"].append({"index": i, "value": v, "reason": "低于最小值"})
+            if max_val is not None and v > max_val:
+                result["out_of_range"].append({"index": i, "value": v, "reason": "高于最大值"})
+
+    return result
+
+
+def analyze_data_jumps(values: list[float], threshold: float = None) -> dict:
+    """分析数据跳变。
+
+    Args:
+        values: 数值列表
+        threshold: 跳变阈值（可选，默认为平均值的 50%）
+
+    Returns:
+        分析结果
+    """
+    if len(values) < 2:
+        return {"error": "数据不足，需要至少 2 个值"}
+
+    # 计算差值
+    diffs = [abs(values[i+1] - values[i]) for i in range(len(values)-1)]
+
+    # 计算统计信息
+    mean_diff = sum(diffs) / len(diffs)
+    max_diff = max(diffs)
+
+    # 自动计算阈值
+    if threshold is None:
+        threshold = mean_diff * 3  # 默认为平均差值的 3 倍
+
+    # 查找跳变
+    jumps = []
+    for i, diff in enumerate(diffs):
+        if diff > threshold:
+            jumps.append({
+                "index": i,
+                "from": values[i],
+                "to": values[i+1],
+                "diff": diff,
+                "threshold": threshold,
+            })
+
+    return {
+        "count": len(values),
+        "mean_diff": mean_diff,
+        "max_diff": max_diff,
+        "threshold": threshold,
+        "jumps": jumps,
+        "jump_count": len(jumps),
+    }
+
+
+def analyze_data_stability(values: list[float], window_size: int = 5) -> dict:
+    """分析数据稳定性。
+
+    Args:
+        values: 数值列表
+        window_size: 滑动窗口大小
+
+    Returns:
+        分析结果
+    """
+    if len(values) < window_size:
+        return {"error": f"数据不足，需要至少 {window_size} 个值"}
+
+    # 计算滑动窗口的标准差
+    std_devs = []
+    for i in range(len(values) - window_size + 1):
+        window = values[i:i + window_size]
+        mean = sum(window) / len(window)
+        variance = sum((x - mean) ** 2 for x in window) / len(window)
+        std_devs.append(variance ** 0.5)
+
+    # 计算整体稳定性
+    mean_std = sum(std_devs) / len(std_devs)
+    max_std = max(std_devs)
+
+    # 判断稳定性
+    is_stable = max_std < mean_std * 2
+
+    return {
+        "count": len(values),
+        "window_size": window_size,
+        "mean_std": mean_std,
+        "max_std": max_std,
+        "is_stable": is_stable,
+        "std_devs": std_devs[:10],  # 只返回前 10 个
+    }
+
+
+def analyze_data_continuity(values: list[float], expected_interval: float = None,
+                            tolerance: float = 0.1) -> dict:
+    """分析数据连续性。
+
+    Args:
+        values: 数值列表
+        expected_interval: 预期间隔（可选）
+        tolerance: 容差百分比（默认 10%）
+
+    Returns:
+        分析结果
+    """
+    if len(values) < 2:
+        return {"error": "数据不足，需要至少 2 个值"}
+
+    # 计算差值
+    diffs = [values[i+1] - values[i] for i in range(len(values)-1)]
+
+    # 计算统计信息
+    mean_diff = sum(diffs) / len(diffs)
+    std_diff = (sum((d - mean_diff)**2 for d in diffs) / len(diffs)) ** 0.5
+
+    # 检查连续性
+    discontinuities = []
+    if expected_interval is not None:
+        for i, diff in enumerate(diffs):
+            if abs(diff - expected_interval) > expected_interval * tolerance:
+                discontinuities.append({
+                    "index": i,
+                    "from": values[i],
+                    "to": values[i+1],
+                    "diff": diff,
+                    "expected": expected_interval,
+                    "deviation": abs(diff - expected_interval),
+                })
+
+    return {
+        "count": len(values),
+        "mean_diff": mean_diff,
+        "std_diff": std_diff,
+        "expected_interval": expected_interval,
+        "discontinuities": discontinuities,
+        "discontinuity_count": len(discontinuities),
+    }
+
+
+def analyze_data_statistics(values: list[float]) -> dict:
+    """统计分析。
+
+    Args:
+        values: 数值列表
+
+    Returns:
+        统计结果
+    """
+    if not values:
+        return {"error": "没有数据"}
+
+    n = len(values)
+    mean = sum(values) / n
+    variance = sum((x - mean)**2 for x in values) / n
+    std_dev = variance ** 0.5
+
+    # 排序后计算中位数
+    sorted_values = sorted(values)
+    if n % 2 == 0:
+        median = (sorted_values[n//2 - 1] + sorted_values[n//2]) / 2
+    else:
+        median = sorted_values[n//2]
+
+    return {
+        "count": n,
+        "min": min(values),
+        "max": max(values),
+        "mean": mean,
+        "median": median,
+        "std_dev": std_dev,
+        "variance": variance,
+    }
+
+
+def debug_analyze(ser: serial.Serial, duration: float = 10.0,
+                  min_val: float = None, max_val: float = None,
+                  jump_threshold: float = None,
+                  expected_interval: float = None) -> dict:
+    """数据分析模式：监听数据并分析范围、跳变、连续性。
+
+    Args:
+        ser: 串口对象
+        duration: 监听时长（秒）
+        min_val: 最小值阈值
+        max_val: 最大值阈值
+        jump_threshold: 跳变阈值
+        expected_interval: 预期间隔
+
+    Returns:
+        分析结果
+    """
+    print(f"数据分析模式: 监听 {duration}s")
+    print(f"  范围检查: [{min_val}, {max_val}]")
+    print(f"  跳变阈值: {jump_threshold}")
+    print(f"  预期间隔: {expected_interval}")
+    print("-" * 60)
+
+    values = []
+    start = time.time()
+    ser.timeout = 0.1
+    line_buf = bytearray()
+
+    while time.time() - start < duration:
+        data = ser.read(1)
+        if not data:
+            if line_buf:
+                try:
+                    text = bytes(line_buf).decode("utf-8", errors="replace").strip()
+                except Exception:
+                    text = ""
+                if text:
+                    # 提取数值
+                    new_values = parse_values_from_text(text)
+                    if new_values:
+                        values.extend(new_values)
+                        ts = time.time() - start
+                        print(f"[{ts:8.3f}] {text} -> {new_values}")
+                line_buf.clear()
+            continue
+
+        for b in data:
+            if b == ord("\n"):
+                try:
+                    text = bytes(line_buf).decode("utf-8", errors="replace").strip()
+                except Exception:
+                    text = ""
+                if text:
+                    # 提取数值
+                    new_values = parse_values_from_text(text)
+                    if new_values:
+                        values.extend(new_values)
+                        ts = time.time() - start
+                        print(f"[{ts:8.3f}] {text} -> {new_values}")
+                line_buf.clear()
+            elif b == ord("\r"):
+                pass
+            else:
+                line_buf.append(b)
+
+    print("-" * 60)
+    print(f"采集完成: {len(values)} 个数值")
+
+    # 分析结果
+    result = {
+        "duration": duration,
+        "values_count": len(values),
+        "values": values[:100],  # 只保存前 100 个值
+    }
+
+    # 范围分析
+    if values:
+        range_result = analyze_data_range(values, min_val, max_val)
+        result["range_analysis"] = range_result
+        print(f"\n范围分析:")
+        print(f"  最小值: {range_result['min']}")
+        print(f"  最大值: {range_result['max']}")
+        print(f"  平均值: {range_result['mean']:.2f}")
+        print(f"  范围: {range_result['range']}")
+        if range_result.get("out_of_range"):
+            print(f"  ⚠️ 超出范围: {len(range_result['out_of_range'])} 个")
+
+    # 跳变分析
+    if len(values) >= 2:
+        jump_result = analyze_data_jumps(values, jump_threshold)
+        result["jump_analysis"] = jump_result
+        print(f"\n跳变分析:")
+        print(f"  平均差值: {jump_result['mean_diff']:.2f}")
+        print(f"  最大差值: {jump_result['max_diff']:.2f}")
+        print(f"  跳变阈值: {jump_result['threshold']:.2f}")
+        print(f"  跳变次数: {jump_result['jump_count']}")
+        if jump_result.get("jumps"):
+            print(f"  ⚠️ 跳变详情:")
+            for jump in jump_result["jumps"][:5]:  # 只显示前 5 个
+                print(f"    [{jump['index']}] {jump['from']:.2f} -> {jump['to']:.2f} (差值: {jump['diff']:.2f})")
+
+    # 连续性分析
+    if len(values) >= 2 and expected_interval is not None:
+        cont_result = analyze_data_continuity(values, expected_interval)
+        result["continuity_analysis"] = cont_result
+        print(f"\n连续性分析:")
+        print(f"  预期间隔: {cont_result['expected_interval']}")
+        print(f"  实际平均间隔: {cont_result['mean_diff']:.2f}")
+        print(f"  标准差: {cont_result['std_diff']:.2f}")
+        print(f"  不连续点: {cont_result['discontinuity_count']}")
+        if cont_result.get("discontinuities"):
+            print(f"  ⚠️ 不连续详情:")
+            for disc in cont_result["discontinuities"][:5]:
+                print(f"    [{disc['index']}] {disc['from']:.2f} -> {disc['to']:.2f} (偏差: {disc['deviation']:.2f})")
+
+    # 统计分析
+    if values:
+        stats_result = analyze_data_statistics(values)
+        result["statistics"] = stats_result
+        print(f"\n统计分析:")
+        print(f"  中位数: {stats_result['median']:.2f}")
+        print(f"  标准差: {stats_result['std_dev']:.2f}")
+        print(f"  方差: {stats_result['variance']:.2f}")
+
+    return result
+
+
 def debug_interactive(ser: serial.Serial, default_proto: str = "text"):
     """交互模式：支持所有协议切换。"""
     proto = default_proto
@@ -644,6 +995,10 @@ def main() -> int:
   %(prog)s --port COM3 --proto hex --send "01 02 03 04"  # 发送 HEX 包
   %(prog)s --port COM3 --proto printf --listen 10        # 监听 printf 输出
   %(prog)s --port COM3 --mode interactive                # 交互模式
+  %(prog)s --port COM3 --mode analyze --duration 10      # 数据分析模式
+  %(prog)s --port COM3 --mode analyze --duration 10 --min-val 0 --max-val 100
+  %(prog)s --port COM3 --mode analyze --duration 10 --jump-threshold 10
+  %(prog)s --port COM3 --mode analyze --duration 10 --expected-interval 1
   %(prog)s --port COM3 --proto text --batch cmds.txt     # 批量命令
   %(prog)s --auto . --port COM3 --proto text --send "@LED_ON"  # 自动模式
   %(prog)s --workflow workflow_result.json --port COM3 --proto printf --listen 30
@@ -652,6 +1007,9 @@ def main() -> int:
   text   - 文本命令: 自动附加 \\r\\n
   hex    - HEX 包: 自动加帧头 0xFF 和帧尾 0xFE
   printf - 被动监听: 只接收，不发送
+
+数据分析:
+  analyze - 监听数据并分析范围、跳变、连续性
         """,
     )
 
@@ -660,10 +1018,11 @@ def main() -> int:
     parser.add_argument("--baud", type=int, default=9600, help="波特率 (默认 9600)")
     parser.add_argument("--proto", choices=["text", "hex", "printf"], default="text",
                         help="协议类型 (默认 text)")
-    parser.add_argument("--mode", choices=["oneshot", "interactive"], default="oneshot",
+    parser.add_argument("--mode", choices=["oneshot", "interactive", "analyze"], default="oneshot",
                         help="工作模式 (默认 oneshot)")
     parser.add_argument("--send", help="要发送的数据")
     parser.add_argument("--listen", type=float, help="监听时长 (秒，printf 模式)")
+    parser.add_argument("--duration", type=float, default=10, help="分析时长 (秒，analyze 模式)")
     parser.add_argument("--recv-timeout", type=float, default=2.0, help="接收超时 (秒)")
     parser.add_argument("--filter", help="过滤关键字")
     parser.add_argument("--batch", help="批量命令文件")
@@ -673,6 +1032,11 @@ def main() -> int:
     parser.add_argument("--auto", metavar="PROJECT_DIR",
                         help="自动检测项目配置（指定项目根目录）")
     parser.add_argument("--workflow", help="工作流结果 JSON 文件")
+    # 数据分析参数
+    parser.add_argument("--min-val", type=float, help="最小值阈值 (analyze 模式)")
+    parser.add_argument("--max-val", type=float, help="最大值阈值 (analyze 模式)")
+    parser.add_argument("--jump-threshold", type=float, help="跳变阈值 (analyze 模式)")
+    parser.add_argument("--expected-interval", type=float, help="预期间隔 (analyze 模式)")
 
     args = parser.parse_args()
 
@@ -722,6 +1086,20 @@ def main() -> int:
     try:
         if args.mode == "interactive":
             debug_interactive(ser, args.proto)
+        elif args.mode == "analyze":
+            # 数据分析模式
+            result = debug_analyze(
+                ser,
+                duration=args.duration,
+                min_val=args.min_val,
+                max_val=args.max_val,
+                jump_threshold=args.jump_threshold,
+                expected_interval=args.expected_interval,
+            )
+            if args.output:
+                Path(args.output).write_text(
+                    json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+                print(f"结果已保存: {args.output}")
         elif args.batch:
             results = debug_batch(ser, args.proto, args.batch, args.recv_timeout)
             if args.output:
@@ -747,7 +1125,7 @@ def main() -> int:
                         json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
                     print(f"结果已保存: {args.output}")
         else:
-            parser.error("请指定 --send, --listen, --batch 或 --mode interactive")
+            parser.error("请指定 --send, --listen, --batch 或 --mode interactive/analyze")
 
     finally:
         ser.close()

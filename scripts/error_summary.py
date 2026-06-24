@@ -402,6 +402,29 @@ SEVERITY_WEIGHTS = {
     "info": 1,
 }
 
+# 来源权重（编译错误更严重）
+SOURCE_WEIGHTS = {
+    "build": 1.5,
+    "elf_check": 1.2,
+    "sim": 1.0,
+    "optimize": 0.5,
+    "health": 0.3,
+    "renode": 1.0,
+}
+
+# 分类权重（配置错误更严重）
+CATEGORY_WEIGHTS = {
+    "config": 1.5,
+    "cubemx": 1.5,
+    "compile": 1.0,
+    "link": 1.0,
+    "runtime": 1.2,
+    "serial": 0.8,
+    "i2c": 0.8,
+    "spi": 0.8,
+    "adc": 0.8,
+}
+
 
 def calculate_health_score(errors: list[dict]) -> dict:
     """计算项目健康分数。
@@ -412,16 +435,34 @@ def calculate_health_score(errors: list[dict]) -> dict:
     - 60-79: 有少量错误
     - 40-59: 有中等错误
     - 0-39: 有严重错误
+
+    加权规则：
+    - 严重程度：error=10, fatal=20, warning=3, info=1
+    - 来源：build=1.5, elf_check=1.2, sim=1.0, optimize=0.5, health=0.3
+    - 分类：config=1.5, cubemx=1.5, compile=1.0, link=1.0, runtime=1.2
     """
     if not errors:
-        return {"score": 100, "grade": "A", "status": "优秀"}
+        return {"score": 100, "grade": "A", "status": "优秀", "weighted_issues": 0}
 
     # 计算加权分数
     weighted_sum = 0
     for error in errors:
         severity = error.get("severity", "warning")
-        weight = SEVERITY_WEIGHTS.get(severity, 3)
-        weighted_sum += weight
+        source = error.get("source", "unknown")
+        category = error.get("category", "general")
+
+        # 基础权重
+        base_weight = SEVERITY_WEIGHTS.get(severity, 3)
+
+        # 来源权重
+        source_weight = SOURCE_WEIGHTS.get(source, 1.0)
+
+        # 分类权重
+        category_weight = CATEGORY_WEIGHTS.get(category, 1.0)
+
+        # 最终权重
+        final_weight = base_weight * source_weight * category_weight
+        weighted_sum += final_weight
 
     # 计算健康分数（100 - 加权分数，最低 0）
     score = max(0, 100 - weighted_sum)
@@ -474,6 +515,55 @@ def summarize_errors(errors: list[dict]) -> dict:
         summary["by_file"][file] = summary["by_file"].get(file, 0) + 1
 
     return summary
+
+
+def group_errors_by_file(errors: list[dict]) -> dict:
+    """将错误按文件分组。
+
+    Args:
+        errors: 错误列表
+
+    Returns:
+        按文件分组的错误字典
+    """
+    grouped = {}
+
+    for error in errors:
+        file = error.get("file", "unknown")
+        if file not in grouped:
+            grouped[file] = []
+        grouped[file].append(error)
+
+    # 按错误数量排序
+    sorted_grouped = dict(sorted(grouped.items(), key=lambda x: len(x[1]), reverse=True))
+
+    return sorted_grouped
+
+
+def get_fix_suggestions_from_tracker(errors: list[dict]) -> list[dict]:
+    """从 error_tracker.py 获取修复建议。"""
+    suggestions = []
+
+    try:
+        # 导入 error_tracker 模块
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        from error_tracker import get_fix_suggestions
+
+        # 为每个错误获取修复建议
+        for error in errors[:10]:  # 只处理前 10 个错误
+            error_msg = error.get("message", "")
+            if error_msg:
+                fix_suggestions = get_fix_suggestions(error_msg)
+                if fix_suggestions:
+                    suggestions.append({
+                        "error": error_msg,
+                        "suggestions": fix_suggestions[:3],  # 每个错误最多 3 个建议
+                    })
+    except ImportError:
+        pass  # error_tracker 模块不可用
+
+    return suggestions
 
 
 def generate_report(errors: list[dict], summary: dict, text_mode: bool = False) -> str:

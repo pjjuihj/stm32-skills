@@ -463,7 +463,7 @@ def run_serial_check(paths: dict, port: str | None = None, baud: int = 115200,
 
 
 def run_post_analysis(paths: dict, workflow_result: dict) -> dict:
-    """运行后置分析（错误总结 + 技术规范）。"""
+    """运行后置分析（错误总结 + 技术规范 + 错误追踪）。"""
     results = {}
 
     # 错误总结
@@ -490,12 +490,23 @@ def run_post_analysis(paths: dict, workflow_result: dict) -> dict:
         results["tech_spec"] = {"success": False, "error": r.get("error", "")}
         print(f"⚠️ 技术规范生成失败")
 
+    # 错误追踪报告
+    print(f"\n生成错误追踪报告...")
+    args = ["--report", "--text"]
+    r = run_script("error_tracker.py", args, timeout=30)
+    if r["success"]:
+        results["error_tracker"] = {"success": True, "output": r["stdout"]}
+        print("✅ 错误追踪报告已生成")
+    else:
+        results["error_tracker"] = {"success": False, "error": r.get("error", "")}
+        print(f"⚠️ 错误追踪报告生成失败")
+
     return results
 
 
 # === 主流程 ===
 
-VALID_STEPS = ["compile", "analyze", "optimize", "simulate", "flash", "serial", "health", "report"]
+VALID_STEPS = ["compile", "analyze", "optimize", "simulate", "flash", "serial", "health", "report", "brick_check"]
 
 def run_workflow(paths: dict, steps: list[str], port: str | None = None,
                  firmware: str | None = None, max_fix_rounds: int = 3,
@@ -558,6 +569,27 @@ def run_workflow(paths: dict, steps: list[str], port: str | None = None,
 
         elif step == "health":
             results["steps"]["health"] = run_health(paths)
+
+        elif step == "brick_check":
+            # 死机锁死预防检查
+            print(f"\n运行死机锁死预防检查...")
+            ioc_path = paths.get("ioc_file")
+            elf_path = paths.get("elf_path")
+            uv4_path = paths.get("uv4_path")
+            args = ["--text"]
+            if ioc_path:
+                args.extend(["--ioc", ioc_path])
+            if elf_path:
+                args.extend(["--elf", elf_path])
+            if uv4_path:
+                args.extend(["--uv4", uv4_path])
+            r = run_script("brick_prevention.py", args, timeout=60)
+            if r["success"]:
+                results["steps"]["brick_check"] = {"success": True, "output": r["stdout"]}
+                print("✅ 死机锁死预防检查完成")
+            else:
+                results["steps"]["brick_check"] = {"success": False, "error": r.get("error", "")}
+                print(f"⚠️ 死机锁死预防检查失败")
 
         elif step == "report":
             # 保存当前结果到文件

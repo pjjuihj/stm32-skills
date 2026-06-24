@@ -3,6 +3,11 @@
 
 从项目配置、编译结果、CubeMX 配置中提取信息，生成结构化技术规范文档。
 
+AI 工作流约定：
+  - 开发新功能时，先读技术规范
+  - 检查外设详细配置，确保代码适配 CubeMX 配置
+  - 参考 CubeMX 配置指南进行外设配置
+
 用法:
   # 自动模式（推荐）
   python tech_spec.py --auto . --text
@@ -136,6 +141,20 @@ def parse_ioc_file(ioc_path: str) -> dict:
                             p["params"][param] = value
                             break
 
+        # 外设参数
+        if "." in key and not key.startswith("P") and not key.startswith("RCC"):
+            parts = key.split(".", 1)
+            if len(parts) == 2:
+                periph, param = parts
+                if param != "Mode" and param != "NVIC":
+                    # 查找已有外设
+                    for p in config["peripherals"]:
+                        if p["name"] == periph:
+                            if "params" not in p:
+                                p["params"] = {}
+                            p["params"][param] = value
+                            break
+
         # 时钟配置
         if key.startswith("RCC."):
             clock_key = key.replace("RCC.", "")
@@ -223,43 +242,48 @@ CHIP_FEATURES = {
         "core": "Cortex-M3",
         "max_freq": "72 MHz",
         "voltage": "2.0V - 3.6V",
-        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "TIM", "DMA", "USB"],
+        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "TIM", "DMA", "USB", "CAN"],
         "flash_start": "0x08000000",
         "ram_start": "0x20000000",
+        "packages": ["LQFP48", "LQFP64", "LQFP100", "LQFP144"],
     },
     "F2": {
         "core": "Cortex-M3",
         "max_freq": "120 MHz",
         "voltage": "1.8V - 3.6V",
-        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "TIM", "DMA", "USB", "ETH"],
+        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "TIM", "DMA", "USB", "ETH", "CAN"],
         "flash_start": "0x08000000",
         "ram_start": "0x20000000",
+        "packages": ["LQFP64", "LQFP100", "LQFP144", "LQFP176"],
     },
     "F3": {
         "core": "Cortex-M4F",
         "max_freq": "72 MHz",
         "voltage": "2.0V - 3.6V",
-        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "DAC", "TIM", "DMA", "USB"],
+        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "DAC", "TIM", "DMA", "USB", "CAN"],
         "flash_start": "0x08000000",
         "ram_start": "0x20000000",
+        "packages": ["LQFP32", "LQFP48", "LQFP64", "LQFP100"],
     },
     "F4": {
         "core": "Cortex-M4F",
         "max_freq": "168 MHz",
         "voltage": "1.8V - 3.6V",
-        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "DAC", "TIM", "DMA", "USB", "ETH", "SDIO", "DCMI"],
+        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "DAC", "TIM", "DMA", "USB", "ETH", "SDIO", "DCMI", "CAN", "QSPI"],
         "flash_start": "0x08000000",
         "ram_start": "0x20000000",
         "ccm_start": "0x10000000",
+        "packages": ["LQFP48", "LQFP64", "LQFP100", "LQFP144", "LQFP176", "BGA100", "BGA144", "BGA176"],
     },
     "F7": {
         "core": "Cortex-M7F",
         "max_freq": "216 MHz",
         "voltage": "1.7V - 3.6V",
-        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "DAC", "TIM", "DMA", "USB", "ETH", "SDIO", "DCMI", "QSPI"],
+        "features": ["GPIO", "USART", "SPI", "I2C", "ADC", "DAC", "TIM", "DMA", "USB", "ETH", "SDIO", "DCMI", "QSPI", "CAN"],
         "flash_start": "0x08000000",
         "ram_start": "0x20000000",
         "dtcm_start": "0x20000000",
+        "packages": ["LQFP48", "LQFP64", "LQFP100", "LQFP144", "LQFP176", "BGA100", "BGA144", "BGA176", "BGA216"],
     },
     "G0": {
         "core": "Cortex-M0+",
@@ -304,6 +328,87 @@ CHIP_FEATURES = {
         "ram_start": "0x20000000",
     },
 }
+
+
+def extract_peripheral_details(ioc_config: dict) -> dict:
+    """从 IOC 配置中提取详细外设配置。"""
+    details = {}
+
+    # USART 详细配置
+    for periph in ioc_config.get("peripherals", []):
+        name = periph.get("name", "")
+        if "USART" in name or "UART" in name:
+            details[name] = {
+                "mode": periph.get("mode", ""),
+                "baudrate": periph.get("params", {}).get("BaudRate", "115200"),
+                "databits": periph.get("params", {}).get("WordLength", "8"),
+                "stopbits": periph.get("params", {}).get("StopBits", "1"),
+                "parity": periph.get("params", {}).get("Parity", "None"),
+                "flowcontrol": periph.get("params", {}).get("HwFlowCtl", "None"),
+            }
+
+        # I2C 详细配置
+        elif "I2C" in name:
+            details[name] = {
+                "mode": periph.get("mode", ""),
+                "speed": periph.get("params", {}).get("Speed", "100000"),
+                "addressing": periph.get("params", {}).get("AddressingMode", "7-bit"),
+                "dual_address": periph.get("params", {}).get("DualAddressMode", "Disabled"),
+            }
+
+        # SPI 详细配置
+        elif "SPI" in name:
+            details[name] = {
+                "mode": periph.get("mode", ""),
+                "direction": periph.get("params", {}).get("Direction", "Full-Duplex"),
+                "datasize": periph.get("params", {}).get("DataSize", "8-bit"),
+                "clock_polarity": periph.get("params", {}).get("CLKPolarity", "Low"),
+                "clock_phase": periph.get("params", {}).get("CLKPhase", "1Edge"),
+                "baudrate_prescaler": periph.get("params", {}).get("BaudRatePrescaler", "2"),
+                "first_bit": periph.get("params", {}).get("FirstBit", "MSB"),
+            }
+
+        # TIM 详细配置
+        elif "TIM" in name:
+            details[name] = {
+                "mode": periph.get("mode", ""),
+                "prescaler": periph.get("params", {}).get("Prescaler", "0"),
+                "period": periph.get("params", {}).get("Period", "65535"),
+                "counter_mode": periph.get("params", {}).get("CounterMode", "Up"),
+                "clock_division": periph.get("params", {}).get("ClockDivision", "1"),
+            }
+
+        # ADC 详细配置
+        elif "ADC" in name:
+            details[name] = {
+                "mode": periph.get("mode", ""),
+                "resolution": periph.get("params", {}).get("Resolution", "12-bit"),
+                "data_align": periph.get("params", {}).get("DataAlign", "Right"),
+                "scan_conv_mode": periph.get("params", {}).get("ScanConvMode", "Disabled"),
+                "continuous_conv_mode": periph.get("params", {}).get("ContinuousConvMode", "Disabled"),
+            }
+
+        # DAC 详细配置
+        elif "DAC" in name:
+            details[name] = {
+                "mode": periph.get("mode", ""),
+                "output_buffer": periph.get("params", {}).get("OutputBuffer", "Enable"),
+                "trigger": periph.get("params", {}).get("Trigger", "None"),
+            }
+
+    # GPIO 详细配置
+    for pin in ioc_config.get("pins", []):
+        pin_name = pin.get("pin", "")
+        if pin_name.startswith("P") and pin.get("mode"):
+            details[f"GPIO_{pin_name}"] = {
+                "mode": pin.get("mode", ""),
+                "pull": pin.get("pull", "No pull-up/pull-down"),
+                "speed": pin.get("speed", "Low"),
+                "label": pin.get("label", ""),
+                "output_type": pin.get("output_type", "Push-pull"),
+            }
+
+    return details
 
 
 def generate_tech_spec(project_info: dict, ioc_config: dict = None,
@@ -403,6 +508,13 @@ def generate_tech_spec(project_info: dict, ioc_config: dict = None,
         spec["nvic"] = ioc_config.get("nvic", [])
         if ioc_config.get("freertos"):
             spec["rtos"] = ioc_config["freertos"]
+        if ioc_config.get("dma"):
+            spec["dma"] = ioc_config["dma"]
+        if ioc_config.get("gpio"):
+            spec["gpio_config"] = ioc_config["gpio"]
+
+        # 详细外设配置
+        spec["peripheral_details"] = extract_peripheral_details(ioc_config)
 
     # ELF 信息
     if elf_info:
@@ -460,9 +572,11 @@ def format_tech_spec_markdown(spec: dict) -> str:
     lines.append("3. [内存布局](#内存布局)")
     lines.append("4. [构建信息](#构建信息)")
     lines.append("5. [外设配置](#外设配置)")
-    lines.append("6. [GPIO 配置](#gpio-配置)")
-    lines.append("7. [时钟配置](#时钟配置)")
-    lines.append("8. [NVIC 配置](#nvic-配置)")
+    lines.append("6. [外设详细配置](#外设详细配置)")
+    lines.append("7. [GPIO 配置](#gpio-配置)")
+    lines.append("8. [时钟配置](#时钟配置)")
+    lines.append("9. [NVIC 配置](#nvic-配置)")
+    lines.append("10. [CubeMX 配置指南](#cubemx-配置指南)")
     lines.append("")
 
     # 项目信息
@@ -504,6 +618,13 @@ def format_tech_spec_markdown(spec: dict) -> str:
         lines.append(", ".join(spec["features"]))
         lines.append("")
 
+    # 封装信息
+    if spec['chip'].get('packages'):
+        lines.append("### 可用封装")
+        lines.append("")
+        lines.append(", ".join(spec['chip']['packages']))
+        lines.append("")
+
     # 内存布局
     lines.append("## 内存布局")
     lines.append("")
@@ -540,9 +661,17 @@ def format_tech_spec_markdown(spec: dict) -> str:
         flash_end = int(flash_start, 16) + flash_size * 1024 - 1
         ram_end = int(ram_start, 16) + ram_size * 1024 - 1
 
+        # 计算使用量（如果有构建信息）
+        build = spec.get("build", {})
+        flash_used = build.get("flash_used", 0)
+        ram_used = build.get("ram_used", 0)
+
         lines.append(f"  FLASH ({flash_size} KB):")
         lines.append(f"    {flash_start} ───────────────────── {flash_end:08X}")
         lines.append(f"    │                                         │")
+        if flash_used > 0:
+            flash_percent = flash_used / (flash_size * 1024) * 100
+            lines.append(f"    │  已使用: {flash_used} bytes ({flash_percent:.1f}%)")
         lines.append(f"    │  .text (代码)                            │")
         lines.append(f"    │  .rodata (只读数据)                      │")
         lines.append(f"    │  .data (初始化数据)                      │")
@@ -552,6 +681,9 @@ def format_tech_spec_markdown(spec: dict) -> str:
         lines.append(f"  RAM ({ram_size} KB):")
         lines.append(f"    {ram_start} ───────────────────── {ram_end:08X}")
         lines.append(f"    │                                         │")
+        if ram_used > 0:
+            ram_percent = ram_used / (ram_size * 1024) * 100
+            lines.append(f"    │  已使用: {ram_used} bytes ({ram_percent:.1f}%)")
         lines.append(f"    │  .data (从 Flash 复制)                   │")
         lines.append(f"    │  .bss (零初始化)                         │")
         lines.append(f"    │  .heap (动态分配)                        │")
@@ -570,6 +702,20 @@ def format_tech_spec_markdown(spec: dict) -> str:
 
         lines.append("```")
         lines.append("")
+
+        # 内存使用表
+        if flash_used > 0 or ram_used > 0:
+            lines.append("### 内存使用情况")
+            lines.append("")
+            lines.append("| 区域 | 已使用 | 总大小 | 使用率 |")
+            lines.append("|------|--------|--------|--------|")
+            if flash_used > 0:
+                flash_percent = flash_used / (flash_size * 1024) * 100
+                lines.append(f"| FLASH | {flash_used} bytes | {flash_size} KB | {flash_percent:.1f}% |")
+            if ram_used > 0:
+                ram_percent = ram_used / (ram_size * 1024) * 100
+                lines.append(f"| RAM | {ram_used} bytes | {ram_size} KB | {ram_percent:.1f}% |")
+            lines.append("")
 
     # 构建信息
     if spec.get("build"):
@@ -619,6 +765,24 @@ def format_tech_spec_markdown(spec: dict) -> str:
             lines.append(f"| {pin.get('pin', 'N/A')} | {pin.get('mode', 'N/A')} | {pin.get('label', '')} | {pin.get('speed', '')} | {pin.get('pull', '')} |")
         lines.append("")
 
+    # 外设详细配置
+    if spec.get("peripheral_details"):
+        lines.append("## 外设详细配置")
+        lines.append("")
+        lines.append("> 以下配置来自 CubeMX .ioc 文件，如需修改请在 CubeMX 中操作。")
+        lines.append("")
+
+        for periph_name, config in spec["peripheral_details"].items():
+            lines.append(f"### {periph_name}")
+            lines.append("")
+            lines.append(f"| 参数 | 值 |")
+            lines.append(f"|------|-----|")
+            for key, value in config.items():
+                # 格式化参数名
+                param_name = key.replace("_", " ").title()
+                lines.append(f"| {param_name} | {value} |")
+            lines.append("")
+
     # 时钟配置
     if spec.get("clock"):
         lines.append("## 时钟配置")
@@ -633,16 +797,32 @@ def format_tech_spec_markdown(spec: dict) -> str:
         # 提取关键时钟参数
         hse = clock.get("HSE_VALUE", clock.get("RCC_HSE_VALUE", "8"))
         lse = clock.get("LSE_VALUE", clock.get("RCC_LSE_VALUE", "32.768"))
+        hsi = clock.get("HSI_VALUE", "16")
         sysclk_src = clock.get("RCC_SYSCLKSource", "PLLCLK")
         pll_src = clock.get("RCC_PLLSource", "HSE")
         pll_mul = clock.get("RCC_PLLMUL", "x9")
+        pll_div = clock.get("RCC_PLLDIV", "/1")
         hclk = clock.get("RCC_HCLK", "SYSCLK/1")
         pclk1 = clock.get("RCC_PCLK1", "HCLK/2")
         pclk2 = clock.get("RCC_PCLK2", "HCLK/1")
 
+        # 计算实际频率
+        try:
+            hse_freq = float(hse)
+            pll_freq = hse_freq * int(pll_mul.replace("x", ""))
+            sysclk_freq = pll_freq
+            hclk_freq = sysclk_freq
+            pclk1_freq = hclk_freq / 2
+            pclk2_freq = hclk_freq
+        except:
+            sysclk_freq = "?"
+            hclk_freq = "?"
+            pclk1_freq = "?"
+            pclk2_freq = "?"
+
         lines.append(f"  HSE ({hse} MHz) ───┐")
         lines.append(f"                    │")
-        lines.append(f"  LSI (40 KHz) ───┼──→ PLL ({pll_src} × {pll_mul}) ──→ SYSCLK ({sysclk_src})")
+        lines.append(f"  HSI ({hsi} MHz) ───┼──→ PLL ({pll_src} × {pll_mul}{pll_div}) ──→ SYSCLK ({sysclk_src})")
         lines.append(f"                    │           │")
         lines.append(f"  LSE ({lse} KHz) ─┘           │")
         lines.append(f"                               │")
@@ -654,6 +834,20 @@ def format_tech_spec_markdown(spec: dict) -> str:
         lines.append(f"  │")
         lines.append(f"  └─→ PCLK2 ({pclk2}) ──→ APB2 总线（USART1, TIM1/8, SPI1, ADC1/2/3）")
         lines.append("```")
+        lines.append("")
+
+        # 时钟频率表
+        lines.append("### 时钟频率")
+        lines.append("")
+        lines.append("| 时钟源 | 频率 |")
+        lines.append("|--------|------|")
+        lines.append(f"| HSE | {hse} MHz |")
+        lines.append(f"| HSI | {hsi} MHz |")
+        lines.append(f"| LSE | {lse} KHz |")
+        lines.append(f"| SYSCLK | {sysclk_freq} MHz |")
+        lines.append(f"| HCLK | {hclk_freq} MHz |")
+        lines.append(f"| PCLK1 | {pclk1_freq} MHz |")
+        lines.append(f"| PCLK2 | {pclk2_freq} MHz |")
         lines.append("")
 
         # 时钟参数表
@@ -687,6 +881,52 @@ def format_tech_spec_markdown(spec: dict) -> str:
         for key, value in spec["rtos"].items():
             lines.append(f"| {key} | {value} |")
         lines.append("")
+
+    # DMA 配置
+    if spec.get("dma"):
+        lines.append("## DMA 配置")
+        lines.append("")
+        lines.append(f"| DMA | 请求 |")
+        lines.append(f"|-----|------|")
+        for dma in spec["dma"]:
+            lines.append(f"| {dma.get('name', 'N/A')} | {dma.get('request', 'N/A')} |")
+        lines.append("")
+
+    # CubeMX 配置指南
+    lines.append("## CubeMX 配置指南")
+    lines.append("")
+    lines.append("> **重要**：所有外设配置应在 CubeMX 中完成，不要在代码中修改 CubeMX 生成的配置。")
+    lines.append("")
+    lines.append("### 常用配置命令")
+    lines.append("")
+    lines.append("```bash")
+    lines.append("# 查看外设配置指南")
+    lines.append("python cubemx_guide.py --peripheral USART1")
+    lines.append("python cubemx_guide.py --peripheral I2C1")
+    lines.append("python cubemx_guide.py --peripheral SPI1")
+    lines.append("")
+    lines.append("# 检查配置冲突")
+    lines.append("python pin_checker.py --ioc project.ioc")
+    lines.append("python clock_validator.py --ioc project.ioc")
+    lines.append("python peripheral_validator.py --ioc project.ioc")
+    lines.append("python nvic_checker.py --ioc project.ioc")
+    lines.append("```")
+    lines.append("")
+    lines.append("### 配置修改流程")
+    lines.append("")
+    lines.append("1. 打开 CubeMX 项目文件 (.ioc)")
+    lines.append("2. 在 Pinout & Configuration 中修改外设配置")
+    lines.append("3. 在 Clock Configuration 中检查时钟配置")
+    lines.append("4. 点击 GENERATE CODE 重新生成代码")
+    lines.append("5. 重新编译项目")
+    lines.append("")
+    lines.append("### 注意事项")
+    lines.append("")
+    lines.append("- 不要修改 CubeMX 生成的 `MX_*` 函数")
+    lines.append("- 不要修改 `main.c` 中的 `USER CODE BEGIN/END` 区域外的代码")
+    lines.append("- 如果需要自定义代码，只在 `USER CODE BEGIN/END` 区域内添加")
+    lines.append("- 修改配置后必须重新生成代码")
+    lines.append("")
 
     return "\n".join(lines)
 
