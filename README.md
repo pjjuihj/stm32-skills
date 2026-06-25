@@ -11,6 +11,7 @@ STM32 固件开发全流程自动化技能
 | ⚡ 代码优化 | 分析 Flash/RAM 使用率，给出优化建议 |
 | 🎮 Renode 仿真 | 无硬件仿真验证固件启动和 UART 输出 |
 | 🔥 烧录 | 支持 ST-LINK 和 USB DFU 两种方式 |
+| 🔌 烧录后复位 | 7 种复位方法，支持验证和 bootloader |
 | ⚙️ CubeMX 配置 | 开启外设、配置引脚、配置时钟 |
 | 📡 串口调试 | 监控串口数据，数据分析，协议解析 |
 | 🔄 回归检测 | 对比修改前后的分析结果，检测问题 |
@@ -32,6 +33,12 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 
 # 完整流程（含烧录和串口验证）
 python workflow.py --auto . --steps compile,analyze,flash,serial,report --port COM3
+
+# 烧录 + 复位
+python workflow.py --auto . --steps flash,reset --port COM3
+
+# 烧录 + 复位 + 验证
+python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
 ```
 
 ### 单独使用
@@ -139,6 +146,35 @@ python brick_prevention.py --elf project.axf --check firmware
 - ✅ 读保护状态
 - ✅ Flash 写保护状态
 - ✅ Option Bytes 配置
+
+## 烧录后复位
+
+```bash
+# 烧录 + 复位
+python workflow.py --auto . --steps flash,reset --port COM3
+
+# DTR+RTS 组合复位（CH340/CP2102）
+python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts
+
+# 复位后验证设备响应
+python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
+
+# 进入 STM32 bootloader 模式
+python workflow.py --auto . --steps reset --port COM3 --reset-method bootloader
+
+# 复位重试 3 次
+python workflow.py --auto . --steps reset --port COM3 --reset-retry 3
+```
+
+| 复位方法 | 说明 |
+|---------|------|
+| `dtr` | DTR → NRST |
+| `rts` | RTS → NRST |
+| `dtr_rts` | DTR+RTS 组合（CH340/CP2102） |
+| `break` | BREAK 信号 |
+| `break_dtr` | BREAK + DTR |
+| `custom` | DTR+RTS 同时操作 |
+| `bootloader` | 进入 STM32 bootloader（0x7F 握手） |
 
 ## 串口调试
 
