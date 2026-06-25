@@ -1,317 +1,150 @@
-# STM32 Keil Workflow
+# STM32 Firmware Workflow
 
-STM32 固件开发全流程自动化技能
+STM32 固件开发全流程自动化：编译 → 分析 → 烧录 → 调试 → 文档
+
+支持全系列 STM32（F0/F1/F4/F7/G0/G4/L0/L4/H7）+ 多 IDE（Keil/CubeIDE/IAR）
 
 ## 功能特性
 
 | 功能 | 说明 |
 |------|------|
-| 🔨 编译 | 自动编译 Keil 项目，解析并修复编译错误 |
-| 📊 静态分析 | 检查 ELF 文件、中断向量表、栈堆大小 |
-| ⚡ 代码优化 | 分析 Flash/RAM 使用率，给出优化建议 |
-| 🎮 Renode 仿真 | 无硬件仿真验证固件启动和 UART 输出 |
-| 🔥 烧录 | 支持 ST-LINK 和 USB DFU 两种方式 |
-| 🔌 烧录后复位 | 7 种复位方法，支持验证和 bootloader |
-| ⚙️ CubeMX 配置 | 开启外设、配置引脚、配置时钟 |
-| 📡 串口调试 | 监控串口数据，数据分析，协议解析 |
-| 🔄 回归检测 | 对比修改前后的分析结果，检测问题 |
-| 🐛 错误追踪 | 记录错误和修复方法，自动匹配相似错误 |
-| 📋 技术规范 | 生成项目技术规范文档 |
-| 🛡️ 死机预防 | 烧录前检查固件和配置，防止芯片死机 |
-| 🤖 AI 工作流 | 遇到错误读错误总结，开发功能读技术规范 |
+| 🔨 编译 | 自动编译，失败自动修复重编（最多 3 轮） |
+| 📊 分析 | ELF 检查、静态分析、Flash/RAM 优化 |
+| 🔥 烧录 | ST-LINK / USB DFU，7 种复位方法 |
+| 🔄 开发循环 | 文件变化自动编译烧录（dev_loop.py） |
+| 📡 串口调试 | 监控、交互、协议解析（VOFA+） |
+| 🧪 串口测试 | JSON 测试用例，自动验证（serial_test.py） |
+| 🐛 错误追踪 | 记录/搜索/导出，auto_fix 自动记录 |
+| 📋 文档生成 | 技术规范、错误总结、开发日志 |
+| 🛡️ 死机预防 | 烧录前检查时钟/NVIC/DMA/固件 |
+| 🔧 嵌入式守则 | 13 条实战教训 + 14 节调试方法论 |
+| 📖 文档读写 | 读/写/自动生成 Markdown 文档 |
 
 ## 快速开始
 
-### 一键工作流（推荐）
-
 ```bash
-# 自动检测项目，编译 + 分析 + 优化
-python workflow.py --auto .
+# 开发模式：改了就烧（推荐）
+python dev_loop.py --auto . --port COM3
 
-# 编译 + 分析 + 优化 + 报告
+# 一键工作流：编译 + 分析
+python workflow.py --auto . --steps compile,analyze
+
+# 完整验证：编译 + 分析 + 优化 + 报告
 python workflow.py --auto . --steps compile,analyze,optimize,report
-
-# 完整流程（含烧录和串口验证）
-python workflow.py --auto . --steps compile,analyze,flash,serial,report --port COM3
 
 # 烧录 + 复位
 python workflow.py --auto . --steps flash,reset --port COM3
-
-# 烧录 + 复位 + 验证
-python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
 ```
 
-### 单独使用
+## 工具脚本
 
-```bash
-# 编译
-UV4.exe -b "project.uvprojx" -t "project_led" -o build.log -j0
-
-# 分析
-python check_elf.py --auto .
-python debug_sim.py --auto . --mode sim
-python optimize.py --auto .
-
-# 烧录
-python usb_dfu_flash.py --full --port COM3 --firmware project.hex
-
-# 串口调试
-python serial_debug.py --port COM3 --mode analyze --duration 10
-```
-
-## 核心脚本
+### 核心（每次开发必用）
 
 | 脚本 | 功能 | 常用命令 |
 |------|------|---------|
-| `workflow.py` | **一键工作流** | `--auto . --steps compile,analyze` |
-| `shared.py` | **共享模块** | `from shared import find_fromelf, CHIP_DB` |
-| `check_elf.py` | ELF 文件检查 | `--auto .` |
+| `workflow.py` | 一键工作流 | `--auto . --steps compile,analyze` |
+| `dev_loop.py` | 开发模式循环 | `--auto . --port COM3` |
+| `serial_debug.py` | 串口调试 | `--port COM3 --proto printf --listen 30` |
+| `serial_test.py` | 串口测试 | `--port COM3 --test tests.json` |
+| `error_tracker.py` | 错误追踪 | `--record --error "xxx" --fix "xxx"` |
+| `dev_log.py` | 开发日志 | `--auto . --add "功能完成"` |
+| `tech_spec.py` | 技术规范 | `--auto . --text` |
+
+### 分析（按需使用）
+
+| 脚本 | 功能 | 常用命令 |
+|------|------|---------|
+| `check_elf.py` | ELF 检查 | `--auto .` |
 | `debug_sim.py` | 静态分析 | `--auto . --mode sim` |
-| `optimize.py` | 代码优化分析 | `--auto .` |
+| `optimize.py` | 优化分析 | `--auto .` |
 | `auto_fix.py` | 编译错误修复 | `--auto . --auto-fix` |
-| `renode_sim.py` | Renode 仿真 | `--auto . --mode boot` |
-| `serial_debug.py` | **串口调试助手** | `--port COM3 --mode analyze` |
-| `serial_monitor.py` | 串口监控 | `--port COM3 --mode monitor` |
-| `error_tracker.py` | **错误追踪** | `--record --error "xxx" --fix "xxx"` |
-| `error_summary.py` | **错误总结** | `--auto . --text` |
-| `tech_spec.py` | **技术规范** | `--auto . --text` |
-| `brick_prevention.py` | **死机预防** | `--auto .` |
-| `compare.py` | 回归检测 | `--baseline history/v1/ --current history/v2/` |
-| `usb_dfu_flash.py` | USB DFU 烧录 | `--full --port COM3 --firmware app.hex` |
+| `brick_prevention.py` | 死机预防 | `--auto .` |
+
+### 配置（偶尔使用）
+
+| 脚本 | 功能 | 常用命令 |
+|------|------|---------|
 | `cubemx_config.py` | CubeMX 配置 | `--modify project.ioc --add-peripheral ADC1` |
-| `health_check.py` | 项目健康检查 | `--project . --fix` |
-| `code_gen.py` | 代码生成 | `--type uart --name USART1 --output Core/Src` |
-| `memory_analyzer.py` | 内存分析 | `--elf project.axf --uv4 D:/k5/UV4/UV4.exe` |
-| `pin_checker.py` | 引脚冲突检测 | `--ioc project.ioc` |
-| `clock_validator.py` | 时钟配置验证 | `--ioc project.ioc` |
-| `peripheral_validator.py` | 外设配置验证 | `--ioc project.ioc` |
-| `nvic_checker.py` | NVIC 配置检查 | `--ioc project.ioc` |
+| `pin_checker.py` | 引脚冲突 | `--ioc project.ioc` |
+| `clock_validator.py` | 时钟验证 | `--ioc project.ioc` |
 
-## AI 工作流
+## 嵌入式工程师守则
 
-> **遇到错误时读错误总结，开发功能时读技术规范。**
+### 硬约束（违反 = 必出问题）
 
-### 遇到错误时
+| # | 守则 | 后果 |
+|---|------|------|
+| 1 | 时钟配置不能碰 | PLL/HSE/SYSCLK 代码中动了就死机 |
+| 2 | Error_Handler 不能空死循环 | 必须有串口输出 |
+| 3 | CubeMX 配置是基准 | 代码适配配置，不是反过来 |
+| 4 | CubeMX 重新生成会覆盖 | 手动配置写在 USER CODE 区 |
+| 5 | HAL 和寄存器不能混用 | 混用 = 两套状态机互相覆盖 |
 
-```bash
-# 1. 查错误历史
-python error_tracker.py --search "错误关键词" --text
+### 最佳实践（不做 = 浪费时间）
 
-# 2. 获取修复建议
-python error_tracker.py --suggest "错误信息" --text
+| # | 守则 | 节省 |
+|---|------|------|
+| 6 | 先读文档，再动代码 | 避免重复踩坑 |
+| 7 | 先搜，再试 | 搜 5 分钟省几天 |
+| 8 | 碰到障碍要换路 | 死磕同一条路最贵 |
+| 9 | 写完寄存器要读回来确认 | 不读 = 没写 |
+| 10 | 烧录后先确认是新代码 | 先怀疑旧代码 |
+| 11 | 选外设前查参考手册 | 不查手册 = 赌博 |
+| 12 | 全量编译是最后手段 | 增量编译省 20 秒 |
+| 13 | 每次修 bug 都记录 | 下次 5 秒解决 |
 
-# 3. 修复后记录
-python error_tracker.py --record --error "xxx" --fix "xxx" --file main.c
-```
+## 调试方法论
 
-### 开发功能时
+14 节调试方法论，覆盖嵌入式开发全场景：
 
-```bash
-# 1. 读技术规范
-python tech_spec.py --auto . --text
+① 修改前检查清单 → ② STM32 系列差异 → ③ 寄存器速查 → ④ 网上找资料 → ⑤ HardFault 诊断 → ⑥ 栈溢出检测 → ⑦ 中断优先级 → ⑧ 外设初始化顺序 → ⑨ Error_Handler 改进 → ⑩ 烧录后验证 → ⑪ 选外设前查参考手册 → ⑫ CubeMX 重新生成会覆盖 → ⑬ DBG 调试宏 → ⑭ 编译报错要读
 
-# 2. 检查外设配置
-# 查看技术规范中的"外设详细配置"章节
+## 自动化流程
 
-# 3. 遵循 CubeMX 配置
-# 代码适配配置，不修改配置
-```
-
-## 死机锁死预防
-
-> **时钟配置绝对不能修改！修改时钟配置会导致系统死机、锁死！**
-
-### 烧录前检查
+### 开发模式（快速迭代）
 
 ```bash
-# 完整检查（推荐）
-python brick_prevention.py --auto .
-
-# 检查时钟配置
-python brick_prevention.py --ioc project.ioc --check clock
-
-# 检查固件
-python brick_prevention.py --elf project.axf --check firmware
+python dev_loop.py --auto . --port COM3
+# 改代码 → 自动编译 → 自动烧录 → 继续监控
 ```
 
-### 检查项目
-
-- ✅ 时钟配置（PLL、HSE、SYSCLK）
-- ✅ NVIC 优先级配置
-- ✅ DMA 冲突检测
-- ✅ 固件大小和格式
-- ✅ 向量表有效性
-- ✅ 栈堆配置
-- ✅ 内存重叠检测
-- ✅ 读保护状态
-- ✅ Flash 写保护状态
-- ✅ Option Bytes 配置
-
-## 烧录后复位
+### 串口测试（自动化验证）
 
 ```bash
-# 烧录 + 复位
-python workflow.py --auto . --steps flash,reset --port COM3
-
-# DTR+RTS 组合复位（CH340/CP2102）
-python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts
-
-# 复位后验证设备响应
-python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
-
-# 进入 STM32 bootloader 模式
-python workflow.py --auto . --steps reset --port COM3 --reset-method bootloader
-
-# 复位重试 3 次
-python workflow.py --auto . --steps reset --port COM3 --reset-retry 3
+python serial_test.py --port COM3 --test tests.json --report result.json
 ```
 
-| 复位方法 | 说明 |
-|---------|------|
-| `dtr` | DTR → NRST |
-| `rts` | RTS → NRST |
-| `dtr_rts` | DTR+RTS 组合（CH340/CP2102） |
-| `break` | BREAK 信号 |
-| `break_dtr` | BREAK + DTR |
-| `custom` | DTR+RTS 同时操作 |
-| `bootloader` | 进入 STM32 bootloader（0x7F 握手） |
+测试用例 JSON：
+```json
+{
+  "name": "LED 控制测试",
+  "tests": [
+    {"name": "开灯", "send": "@LED_ON", "expect": "OK"},
+    {"name": "查状态", "send": "@STATUS", "expect_contains": "LED:ON"}
+  ]
+}
+```
 
-## 串口调试
-
-### 数据分析模式
+### 文档自动生成
 
 ```bash
-# 基本分析
-python serial_debug.py --port COM3 --mode analyze --duration 10
-
-# 范围检查
-python serial_debug.py --port COM3 --mode analyze --duration 10 --min-val 0 --max-val 100
-
-# 跳变检测
-python serial_debug.py --port COM3 --mode analyze --duration 10 --jump-threshold 10
-
-# 连续性检查
-python serial_debug.py --port COM3 --mode analyze --duration 10 --expected-interval 1
+python dev_log.py --auto . --from-git                  # git → 日志
+python dev_log.py --auto . --from-errors               # 错误 → 日志
+python error_tracker.py --export solutions-log.md      # 导出问题解决记录
+python tech_spec.py --auto . --output tech-spec.md     # 生成技术规范
 ```
-
-### 协议支持
-
-| 协议 | 说明 |
-|------|------|
-| `text` | 文本命令（自动附加 \r\n） |
-| `hex` | HEX 数据包（自动加帧头帧尾） |
-| `printf` | 被动监听 printf 输出 |
-
-## 技术规范
-
-### 生成功能
-
-```bash
-# 自动模式
-python tech_spec.py --auto . --text
-
-# 从 IOC 文件
-python tech_spec.py --ioc project.ioc --text
-
-# 输出到文件
-python tech_spec.py --auto . --output tech_spec.md
-```
-
-### 包含内容
-
-- 项目信息（工具链、Target、优化级别）
-- 芯片信息（型号、系列、内核、频率、电压）
-- 内存布局（Flash、RAM、CCM）
-- 外设配置（USART、I2C、SPI、TIM、ADC、DAC）
-- GPIO 配置（引脚、模式、速度、上拉/下拉）
-- 时钟配置（时钟树可视化、频率计算）
-- NVIC 配置（中断优先级）
-- CubeMX 配置指南
-
-## 错误追踪
-
-### 记录错误
-
-```bash
-# 记录错误和修复方法
-python error_tracker.py --record --error "undefined reference to 'HAL_GPIO_Init'" --fix "添加 #include 'stm32f4xx_hal_gpio.h'" --file main.c
-```
-
-### 查询历史
-
-```bash
-# 搜索错误
-python error_tracker.py --search "undefined reference" --text
-
-# 获取修复建议
-python error_tracker.py --suggest "undefined reference to 'xxx'" --text
-
-# 生成统计报告
-python error_tracker.py --report --text
-```
-
-## 配置模板
-
-| 模板 | 说明 |
-|------|------|
-| `basic_gpio.json` | LED 输出 + 按键输入 |
-| `uart_comm.json` | USART1 + USART2 双串口 |
-| `i2c_sensor.json` | I2C1 + I2C2 双总线 |
-| `pwm_motor.json` | TIM3 双通道 PWM |
-| `adc_dma.json` | ADC1 单通道采集 |
-| `freertos_basic.json` | FreeRTOS 基础任务配置 |
 
 ## 安装依赖
 
 ### 必需
 - Python 3.8+
-- Keil MDK-ARM (UV4.exe)
+- Keil MDK-ARM 或 STM32CubeIDE 或 IAR
 
 ### 可选
-- [STM32CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html) - 烧录工具
+- [STM32CubeProgrammer](https://www.st.com/en/development-tools/stm32cubeprog.html) - 烧录
 - [Renode](https://renode.io/) - 无硬件仿真
 - [STM32CubeMX](https://www.st.com/en/development-tools/stm32cubemx.html) - 代码生成
 - pyserial - 串口通信 (`pip install pyserial`)
-
-## 使用场景
-
-1. **新项目验证** - 编译后自动检查固件正确性
-2. **代码优化** - 分析 Flash/RAM 使用率，找出大函数
-3. **问题排查** - 静态分析检查中断向量表、栈堆配置
-4. **回归测试** - 修改代码后对比分析结果
-5. **串口调试** - 监控固件输出，数据分析，协议解析
-6. **固件烧录** - 支持 ST-LINK 和 USB DFU 两种方式
-7. **CubeMX 配置** - 自动化配置外设、引脚、时钟、中断
-8. **错误追踪** - 记录错误和修复方法，自动匹配相似错误
-9. **技术规范** - 生成项目技术规范文档
-10. **死机预防** - 烧录前检查固件和配置，防止芯片死机
-
-## 核心原则
-
-### CubeMX 配置为基准
-
-> **CubeMX 生成的配置文件是项目基准，代码必须适配配置，而不是反过来。**
-
-- 不修改 CubeMX 生成的 `MX_*` 函数
-- 代码适配配置，不修改配置
-- 配置错误在 CubeMX 中修改
-
-### 时钟配置保护
-
-> **时钟配置绝对不能修改！修改时钟配置会导致系统死机、锁死！**
-
-- 不修改 PLL 配置
-- 不修改 HSE/HSI 配置
-- 不修改 SYSCLK 源
-- 不修改 AHB/APB 分频
-
-## 注意事项
-
-- 编译错误修复遵循**最小改动原则**
-- 烧录前必须先进行**静态分析验证**
-- 不会执行全片擦除或修改 Option Bytes
-- 支持 VOFA+ 等串口协议解析
-- 时钟配置绝对不能修改
 
 ## 许可证
 
