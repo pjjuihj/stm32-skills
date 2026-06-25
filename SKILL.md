@@ -3,13 +3,19 @@ name: stm32-keil-workflow
 description: >
   STM32 firmware development automation for Keil MDK-ARM projects. Handles compilation, static analysis,
   optimization, simulation, flashing (ST-LINK/USB DFU), CubeMX configuration, serial monitoring, and
-  regression detection. Use this skill when working with STM32 microcontrollers (F0/F1/F2/F3/F4/F7/H7),
+  regression detection. Use this skill when working with STM32 microcontrollers (F0/F1/F2/F3/F4/F7/G0/G4/L0/L4/H7),
   Keil uVision projects (.uvprojx), Cortex-M development, FreeRTOS, STM32CubeMX, or embedded firmware.
   Triggers on: STM32 compile/build/flash/debug, firmware analysis, code optimization, serial port testing,
   CubeMX configuration, .uvprojx projects, ST-LINK/SWD, USB DFU, ELF/AXF analysis, "full analysis",
   "add task", "configure peripheral", ADC/DAC, I2C/SPI/UART, PWM, encoder, motor control.
   Also handles: STM32 project initialization, health checks, code generation, memory analysis,
   pin conflict detection, clock validation, peripheral validation, NVIC configuration.
+  Debug triggers: HAL behavior unexpected, DMA not working, callback not firing, firmware hangs,
+  flash but no effect, Error_Handler stuck, register debugging, HAL source code lookup,
+  "搜一下HAL"、"DMA不循环"、"回调没触发"、"烧了没反应"、"固件卡死"、"寄存器状态",
+  "编译失败"、"烧录没效果"、"跑的是旧代码"、"I2C不通"、"SPI没数据"、"ADC值不对",
+  "串口没输出"、"HardFault"、"栈溢出"、"中断不响应"、"定时器不准",
+  "版本回退"、"恢复上一个版本"、"硬件不工作"、"电源问题"、"示波器".
 ---
 
 # STM32 Keil Workflow
@@ -43,6 +49,8 @@ python workflow.py --auto . --steps brick_check
 ```
 
 `--auto .` 会自动检测 `.uvprojx` 项目文件、`.axf` 编译产物、UV4.exe 路径，无需手动指定任何参数。
+
+> 工具脚本路径：`D:\ClaudeGlobalConfig\skills\stm32-keil-workflow\scripts\`（本技能目录下）
 
 ### 核心脚本支持 --auto
 
@@ -112,32 +120,51 @@ python tech_spec.py --auto . --text
 
 ## 工具脚本
 
+### 核心（每次开发必用）
+
 | 脚本 | 功能 | 常用命令 |
 |------|------|---------|
-| `shared.py` | **共享模块** | `from shared import find_fromelf, CHIP_DB, output_result` |
 | `workflow.py` | **一键工作流** | `--auto . --steps compile,analyze` |
-| `check_elf.py` | ELF 检查 | `--auto .` 或 `--elf project.axf --uv4 D:/k5/UV4/UV4.exe` |
+| `dev_loop.py` | **开发模式循环** | `--auto . --port COM3`（文件变化自动编译烧录） |
+| `dev_log.py` | **开发日志** | `--auto . --add "xxx"` / `--from-git` / `--export log.md` |
+| `serial_debug.py` | **串口调试助手** | `--port COM3 --proto text --send "@LED_ON"` |
+| `serial_test.py` | **串口测试框架** | `--port COM3 --test tests.json` |
+| `error_tracker.py` | **错误追踪** | `--record --error "xxx" --fix "xxx"` / `--export solutions.md` |
+| `tech_spec.py` | **技术规范生成** | `--auto . --text` |
+| `error_summary.py` | **错误总结** | `--auto . --text` |
+
+### 分析（按需使用）
+
+| 脚本 | 功能 | 常用命令 |
+|------|------|---------|
+| `check_elf.py` | ELF 检查 | `--auto .` |
 | `debug_sim.py` | 静态分析 | `--auto . --mode sim` |
 | `optimize.py` | 优化分析 | `--auto .` |
 | `auto_fix.py` | 编译错误修复 | `--auto . --auto-fix` |
-| `renode_sim.py` | Renode 仿真 | `--auto . --mode boot --timeout 5` |
-| `serial_monitor.py` | 串口监控 | `--port COM3 --mode interactive` 或 `--mode monitor --log-file log.txt` |
-| `serial_debug.py` | **串口调试助手** | `--port COM3 --mode analyze --duration 10` |
+| `memory_analyzer.py` | 内存分析 | `--auto .` |
 | `compare.py` | 回归检测 | `--baseline history/v1/ --current history/v2/` |
-| `usb_dfu_flash.py` | USB DFU 烧录 | `--full --port COM3 --firmware app.hex` |
+| `brick_prevention.py` | **死机预防** | `--auto .` |
+
+### 配置（偶尔使用）
+
+| 脚本 | 功能 | 常用命令 |
+|------|------|---------|
 | `cubemx_config.py` | CubeMX 配置 | `--modify project.ioc --add-peripheral ADC1` |
-| `health_check.py` | 项目健康检查 | `--project . --fix` |
-| `code_gen.py` | 代码生成 | `--type uart --name USART1 --output Core/Src` |
-| `memory_analyzer.py` | 内存分析 | `--elf project.axf --uv4 D:/k5/UV4/UV4.exe` |
 | `pin_checker.py` | 引脚冲突检测 | `--ioc project.ioc` |
 | `clock_validator.py` | 时钟配置验证 | `--ioc project.ioc` |
 | `peripheral_validator.py` | 外设配置验证 | `--ioc project.ioc` |
 | `nvic_checker.py` | NVIC 配置检查 | `--ioc project.ioc` |
+| `health_check.py` | 项目健康检查 | `--project . --fix` |
+| `code_gen.py` | 代码生成 | `--type uart --name USART1 --output Core/Src` |
 | `detect_config.py` | 项目配置检测 | `--scan .` |
-| `error_summary.py` | **错误总结** | `--auto . --text` |
-| `error_tracker.py` | **错误追踪** | `--record --error "xxx" --fix "xxx"` |
-| `brick_prevention.py` | **死机预防** | `--auto .` 或 `--ioc project.ioc --check clock` |
-| `tech_spec.py` | **技术规范生成** | `--auto . --text` 或 `--ioc project.ioc --text` |
+
+### 烧录 / 仿真
+
+| 脚本 | 功能 | 常用命令 |
+|------|------|---------|
+| `renode_sim.py` | Renode 仿真 | `--auto . --mode boot --timeout 5` |
+| `serial_monitor.py` | 串口监控 | `--port COM3 --mode interactive` |
+| `usb_dfu_flash.py` | USB DFU 烧录 | `--full --port COM3 --firmware app.hex` |
 
 ## 编译流程
 
@@ -145,9 +172,17 @@ python tech_spec.py --auto . --text
 # 自动模式（推荐）
 python workflow.py --auto . --steps compile
 
-# 手动模式
+# Keil 手动模式
 cd <MDK-ARM目录> && UV4.exe -b <.uvprojx> -t <Target> -o build.log -j0
+
+# STM32CubeIDE（如果用 Eclipse 系）
+cd <项目目录> && arm-none-eabi-gcc -c ... -o build.elf
+
+# IAR
+cd <项目目录> && IarBuild.exe project.ewp -build Debug -log errors
 ```
+
+> 工具脚本默认检测 Keil UV4.exe。如果用 STM32CubeIDE 或 IAR，需要手动指定编译器路径。
 
 **成功**：返回码 0，进入静态分析
 **失败**：`workflow.py` 自动调用 `auto_fix.py` 修复并重编（最多 3 轮）
@@ -219,6 +254,7 @@ python cubemx_config.py --modify project.ioc --set-clock --hse 8 --sysclk 168
 python cubemx_config.py --modify project.ioc --config-gpio --gpio-pin PA8 --gpio-mode Output
 python cubemx_config.py --modify project.ioc --config-nvic --irq USART1_IRQn --nvic-priority 5
 python cubemx_config.py --generate project.ioc --toolchain "MDK-ARM V5"
+# 或 --toolchain "STM32CubeIDE" / --toolchain "SW4STM32" / --toolchain "Makefile"
 ```
 
 详细配置参考：`references/cubemx_quick_ref.md`
@@ -321,128 +357,130 @@ python compare.py --trend --history-dir history/ --report trend.md
 
 ## 常见使用场景
 
-### 场景 1：首次编译新项目
+| 场景 | 第一步 | 命令 |
+|------|--------|------|
+| 快速迭代 | 开发模式 | `python dev_loop.py --auto . --port COM3` |
+| 首次编译 | 健康检查 + 编译 | `python workflow.py --auto . --steps health,compile,analyze` |
+| 烧录前验证 | 完整分析 | `python workflow.py --auto . --steps compile,analyze,optimize,report` |
+| 串口调试 | 监听 printf | `python serial_debug.py --port COM3 --proto printf --listen 30` |
+| 串口测试 | 自动化验证 | `python serial_test.py --port COM3 --test tests.json` |
+| 发送命令 | 文本协议 | `python serial_debug.py --port COM3 --proto text --send "@LED_ON"` |
+| 遇到错误 | 查历史错误 | `python error_tracker.py --search "关键词" --text` |
+| 开发功能 | 读技术规范 | `python tech_spec.py --auto . --text` |
+| 配置外设 | 查 CubeMX 指南 | `python cubemx_guide.py --peripheral USART1` |
+| 回归测试 | 保存快照对比 | `python compare.py --baseline history/v1/ --current history/v2/` |
+| 错误总结 | 从工作流生成 | `python error_summary.py --auto . --text` |
+| 技术规范 | 自动生成 | `python tech_spec.py --auto . --output tech_spec.md` |
+
+## 自动化流程
+
+### 开发模式（快速迭代）
+
+文件变化 → 自动编译 → 自动烧录 → 继续监控。`Ctrl+C` 退出。
 
 ```bash
-# 1. 检查项目健康状态
-python workflow.py --auto . --steps health
+# 最常用：改了就烧
+python dev_loop.py --auto . --port COM3
 
-# 2. 编译 + 分析
+# 只编译不烧录
+python dev_loop.py --auto . --no-flash
+
+# 2 秒检查一次（减少 CPU 占用）
+python dev_loop.py --auto . --port COM3 --interval 2
+```
+
+### 验证模式（完整检查）
+
+编译 → 分析 → 优化 → 报告。烧录前用这个。
+
+```bash
+python workflow.py --auto . --steps compile,analyze,optimize,report
+```
+
+### 串口测试（自动化验证）
+
+JSON 定义测试用例，自动发命令检查响应。
+
+```bash
+# 运行测试套件
+python serial_test.py --port COM3 --test tests.json
+
+# 生成报告
+python serial_test.py --port COM3 --test tests.json --report result.json
+
+# 单条测试
+python serial_test.py --port COM3 --send "@LED_ON" --expect "OK"
+```
+
+**测试用例 JSON 格式：**
+```json
+{
+  "name": "LED 控制测试",
+  "baudrate": 115200,
+  "tests": [
+    {"name": "开灯", "send": "@LED_ON", "expect": "OK", "timeout": 2},
+    {"name": "查状态", "send": "@STATUS", "expect_contains": "LED:ON"},
+    {"name": "关灯", "send": "@LED_OFF", "expect": "OK"}
+  ]
+}
+```
+
+### 完整 CI 流程
+
+```bash
+# 1. 编译 + 分析
 python workflow.py --auto . --steps compile,analyze
 
-# 3. 如果编译失败，查看错误详情
-python auto_fix.py --auto . --text
+# 2. 烧录
+python workflow.py --auto . --steps flash --port COM3
+
+# 3. 串口测试
+python serial_test.py --port COM3 --test tests.json --report result.json
+
+# 4. 记录结果
+python error_tracker.py --record --error "CI 通过" --fix "N/A"
 ```
 
-### 场景 2：烧录前验证
+### auto_fix 自动记录
+
+auto_fix.py 修复编译错误后，自动调用 error_tracker.py 记录错误和修复方法。下次遇到同样的错误，`error_tracker.py --search` 就能找到。
+
+## 文档读写
+
+### 读文档
+
+| 读什么 | 命令 | 说明 |
+|--------|------|------|
+| 技术规范 | `python tech_spec.py --auto . --text` | 从 CubeMX 和编译产物提取 |
+| 错误总结 | `python error_summary.py --auto . --text` | 从 build.log 提取 |
+| 错误历史 | `python error_tracker.py --search "关键词" --text` | 搜索历史错误 |
+| 开发日志 | `python dev_log.py --auto . --today` | 今日开发记录 |
+| 项目文档 | Glob 搜 `**/*spec*`、`**/*log*`、`**/*solution*` | 定位项目文档 |
+| HAL 源码 | `Drivers/*HAL_Driver/Src/*hal_<外设>.c` | 读 HAL 实现 |
+
+### 写文档
+
+| 写什么 | 命令 | 说明 |
+|--------|------|------|
+| 技术规范 | `python tech_spec.py --auto . --output tech_spec.md` | 生成到文件 |
+| 开发日志 | `python dev_log.py --auto . --add "功能描述"` | 手动记录 |
+| 从 git 生成日志 | `python dev_log.py --auto . --from-git` | 自动从提交记录生成 |
+| 从错误生成日志 | `python dev_log.py --auto . --from-errors` | 自动从 error_tracker 生成 |
+| 导出日志 | `python dev_log.py --auto . --export dev-log.md` | 导出为 Markdown |
+| 问题解决记录 | `python error_tracker.py --export solutions-log.md` | 导出为 solutions-log 格式 |
+| 错误记录 | `python error_tracker.py --record --error "xxx" --fix "xxx"` | 记录单条错误 |
+| 串口测试报告 | `python serial_test.py --port COM3 --test tests.json --report result.json` | 生成测试报告 |
+
+### 文档自动化
 
 ```bash
-# 完整验证流程
-python workflow.py --auto . --steps compile,analyze,optimize,simulate
-
-# 只看优化建议
-python optimize.py --auto . --text
+# 每日开发结束时，自动生成所有文档
+python dev_log.py --auto . --from-git                  # 从 git 生成日志
+python dev_log.py --auto . --from-errors               # 从错误生成日志
+python dev_log.py --auto . --export docs/dev-log.md    # 导出开发日志
+python error_tracker.py --export docs/solutions-log.md # 导出问题解决记录
+python tech_spec.py --auto . --output docs/tech-spec.md # 生成技术规范
 ```
-
-### 场景 3：串口调试
-
-```bash
-# 监听 printf 输出
-python serial_debug.py --port COM3 --proto printf --listen 30 --filter "error"
-
-# 发送命令测试
-python serial_debug.py --port COM3 --proto text --send "@LED_ON"
-
-# HEX 数据包测试
-python serial_debug.py --port COM3 --proto hex --send "01 02 03 04"
-```
-
-### 场景 4：回归测试
-
-```bash
-# 保存当前版本快照
-python compare.py --save --history-dir history/ --elf-data check_elf.json --sim-data debug_sim.json
-
-# 修改代码后对比
-python compare.py --baseline history/v1/ --current history/v2/ --report diff.md
-```
-
-### 场景 5：错误总结
-
-```bash
-# 从工作流结果总结错误
-python error_summary.py --workflow workflow_result.json --text
-
-# 从编译日志总结
-python error_summary.py --build-log build.log --text
-
-# 自动模式
-python error_summary.py --auto . --text
-```
-
-### 场景 6：生成技术规范
-
-```bash
-# 自动模式（推荐）
-python tech_spec.py --auto . --text
-
-# 从 CubeMX 配置生成
-python tech_spec.py --ioc project.ioc --text
-
-# 输出到 Markdown 文件
-python tech_spec.py --auto . --output tech_spec.md
-```
-
-## 错误总结
-
-```bash
-# 从工作流结果总结
-python error_summary.py --workflow workflow_result.json --text
-
-# 从编译日志总结
-python error_summary.py --build-log build.log --text
-
-# 多个来源汇总
-python error_summary.py --build-log build.log --elf-data check_elf.json --sim-data debug_sim.json --text
-```
-
-**输出内容**：
-- 错误统计（按严重程度、来源、分类）
-- 详细错误列表（文件、行号、消息）
-- 修复建议（按优先级排序）
-
-## 技术规范生成
-
-```bash
-# 自动模式
-python tech_spec.py --auto . --text
-
-# 从工作流结果生成
-python tech_spec.py --workflow workflow_result.json --text
-
-# 输出到文件
-python tech_spec.py --auto . --output tech_spec.md
-```
-
-**生成内容**：
-- 项目信息（名称、工具链、Target）
-- 芯片信息（型号、内核、Flash/RAM）
-- 内存布局（Flash、RAM、CCM 地址）
-- 外设配置（从 CubeMX 提取）
-- GPIO 配置（引脚、模式、标签）
-- 时钟配置（HSE、SYSCLK、APB）
-- NVIC 配置（中断使能状态）
-- FreeRTOS 配置（任务、栈、优先级）
-- 构建信息（Flash/RAM 使用率、栈堆大小）
-
-## 调试排查
-
-| 问题 | 排查方法 |
-|------|---------|
-| ST-LINK 连接失败 | 检查是否有其他程序占用、检查 USB 连接 |
-| 固件不运行 | 检查栈溢出、中断向量表、时钟配置 |
-| 串口无响应 | 确认 COM 口和波特率、检查 TX/RX 接线 |
-| I2C/SPI 通信失败 | 检查上拉电阻、时钟配置、地址设置 |
 
 ## 项目记忆
 
@@ -528,68 +566,415 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 
 ## AI 工作流约定
 
-> **遇到错误时读错误总结，开发功能时读技术规范。**
+> **遇到错误时读错误总结，开发功能时读技术规范。** 详细工作流参考：`references/ai_workflow.md`
 
-详细工作流请参考：`references/ai_workflow.md`
+### AI 修改代码前必须做
 
-### 快速参考
+1. **读项目文档** — Glob 搜 `**/*spec*`、`**/*log*`、`**/*solution*`，看有没有相关记录
+2. **读技术规范** — `python tech_spec.py --auto . --text`，了解外设配置和时钟布局
+3. **搜错误历史** — `python error_tracker.py --search "关键词" --text`，看有没有踩过同样的坑
 
-| 场景 | 第一步 | 命令 |
-|------|--------|------|
-| 遇到错误 | 查错误总结 | `python error_tracker.py --search "关键词" --text` |
-| 开发功能 | 读技术规范 | `python tech_spec.py --auto . --text` |
-| 配置外设 | 查 CubeMX 指南 | `python cubemx_guide.py --peripheral USART1` |
-| 编译测试 | 运行工作流 | `python workflow.py --auto . --steps compile` |
+### AI 调试时必须做
 
-## ⚠️ 时钟配置保护规则
+1. **不猜** — 先读寄存器确认实际状态，再下结论
+2. **先搜** — 搜 ST Community / Stack Overflow，HAL 被几十万人用过
+3. **读源码** — 搜不到就读 `Drivers/*HAL_Driver/Src/*hal_<外设>.c`
+4. **最小改动** — 一次只改一处，验证后才改下一处
+5. **确认新代码** — 烧录后看 BUILD 时间戳，排除旧代码
 
-> **时钟配置绝对不能修改！修改时钟配置会导致系统死机、锁死！**
+### AI 修复后必须做
 
-### 禁止操作
+1. **记录错误** — `python error_tracker.py --record --error "xxx" --fix "xxx"`
+2. **验证修复** — 编译通过 + 串口确认功能正常
+3. **版本标记** — 功能完成后 `git tag stable/xxx`
 
-| 禁止 | 说明 |
+### AI 不能做的事
+
+| 禁止 | 原因 |
 |------|------|
-| ❌ 修改 PLL 配置 | PLL 倍频、分频系数 |
-| ❌ 修改 HSE/HSI | 外部/内部高速时钟源 |
-| ❌ 修改 SYSCLK | 系统时钟源选择 |
-| ❌ 修改 AHB/APB 分频 | 总线时钟分频系数 |
-| ❌ 修改 CubeMX 时钟 | Clock Configuration 中的任何参数 |
+| 修改时钟配置 | PLL/HSE/SYSCLK 代码中动了就死机 |
+| 修改 CubeMX 生成的 MX_* 函数 | CubeMX 重新生成会覆盖 |
+| 混用 HAL 和寄存器操作同一外设 | 两套状态机互相覆盖 |
+| 空 Error_Handler | 板子卡死无法定位 |
+| 全片擦除（-e） | 除非用户明确要求或死机恢复 |
+| 不读错误信息就猜 | 编译器告诉你问题在哪，就读 |
 
-### 允许操作
+### AI 开发新功能的流程
 
-| 允许 | 说明 |
-|------|------|
-| ✅ 读取时钟配置 | 查看当前配置 |
-| ✅ 验证时钟配置 | 检查配置是否正确 |
-| ✅ 在 CubeMX 中修改 | 用户手动在 CubeMX 中修改 |
+```
+1. 读技术规范 → 了解外设配置和已知问题
+2. 搜错误历史 → 看有没有类似功能的踩坑记录
+3. 查参考手册 → 确认外设能力（触发源、DMA 通道等）
+4. 写代码 → 在 USER CODE 区写，不改 CubeMX 生成的代码
+5. 编译验证 → python workflow.py --auto . --steps compile
+6. 烧录测试 → python dev_loop.py --auto . --port COM3
+7. 记录结果 → python dev_log.py --auto . --add "功能完成"
+8. 版本标记 → git tag stable/xxx
+```
 
-### 时钟配置验证
+## 嵌入式工程师守则
+
+### 硬约束（违反 = 必出问题）
+
+| # | 守则 | 后果 |
+|---|------|------|
+| 1 | 时钟配置不能碰 | PLL/HSE/SYSCLK 代码中动了就死机，只能在 CubeMX 改 |
+| 2 | Error_Handler 不能空死循环 | 必须有串口输出，否则"板子卡死"无法定位 |
+| 3 | CubeMX 配置是基准 | 代码适配配置，不是反过来。配置错误在 CubeMX 中改，不在代码中绕过 |
+| 4 | CubeMX 重新生成会覆盖 | 手动配置必须写在 USER CODE 区，生成后对照验证 |
+| 5 | HAL 和寄存器不能混用 | 混用 = 两套状态机互相覆盖，回调失效 |
+
+### 最佳实践（不做 = 浪费时间）
+
+| # | 守则 | 节省 |
+|---|------|------|
+| 6 | 先读文档，再动代码 | 技术规范和问题日志是事前检查清单，避免重复踩坑 |
+| 7 | 先搜，再试 | HAL 被几十万人用过，搜 5 分钟省几天 |
+| 8 | 碰到障碍要换路 | 死磕同一条路是最贵的错误 |
+| 9 | 写完寄存器要读回来确认 | 写→读→确认，不读回来 = 没写 |
+| 10 | 烧录后先确认是新代码 | 改了没效果？先怀疑旧代码，不要怀疑逻辑 |
+| 11 | 选外设前查参考手册 | ADC 触发源、DMA 能力 — 不查手册就选型 = 赌博 |
+| 12 | 全量编译是最后手段 | 增量编译每次省 20 秒 |
+| 13 | 每次修 bug 都记录 | `error_tracker.py --record`，下次 5 秒解决 |
+
+> 详细执行步骤见下方"调试方法论"对应章节。
+
+---
+
+## 解决问题的流程
+
+嵌入式问题的本质是**信息不对称**——你不知道硬件/固件的实际状态。流程目标：用最少的烧录次数获取最多的信息。
+
+```
+发现问题
+  │
+  ├─→ 查项目文档（2min）  → 有答案 → 修复 → 验证 → 记录
+  │
+  ├─→ 搜网上资料（5min）  → 有方案 → 修复 → 验证 → 记录
+  │
+  ├─→ 读寄存器确认状态（1min）→ 定位根因 → 修复
+  │
+  └─→ 读 HAL 源码（5min）→ 最小改动修复 → 确认新代码 → 验证 → 记录
+```
+
+**时间预算：15 分钟内找到根因。超过 15 分钟还在猜，说明流程没执行到位。**
+
+**示例：DMA 只跑一轮**
+```
+问题：ADC DMA 采集一轮就停
+  ├→ 查文档：solutions-log 搜 "DMA" → 没找到
+  ├→ 搜网上：HAL_ADC_Start_DMA circular mode → ST Community 说 HAL 会覆盖 DMA 配置
+  ├→ 读寄存器：DMA2_Stream0->CR = 0x00000000（CIRC 位没置位）
+  ├→ 读源码：stm32f4xx_hal_adc.c 第 1461 行，HAL_DMA_Start_IT 重新初始化 DMA
+  └→ 修复：在 HAL_ADC_Start_DMA 之后手动重新设置 CIRC 位 → 解决 → 记录
+```
+
+> 每一步的详细操作 → 见"调试方法论"对应章节
+
+---
+
+## 调试方法论
+
+### ① 修改前检查清单
+
+修改 DMA/定时器/中断相关代码前，必须先读项目文档：
+
+1. **技术规范**（`technical-spec.md`、`tech_spec` 等）→ 已知问题、外设配置
+2. **开发日志 / 问题解决记录**（`solutions-log.md`、`dev-log.md` 等）→ 搜关键词
+3. **死锁预防清单**（`deadlock-prevention.md`）→ 检查清单
+
+> 文件名因项目而异，用 Glob 搜 `**/*spec*`、`**/*log*`、`**/*solution*` 定位。
+
+### ② STM32 系列差异
+
+不同系列的寄存器名和 DMA 模型不同，用 HAL 宏（如 `DMA_SxCR_CIRC`）而不是硬编码地址。
+
+| 系列 | DMA 模型 | GPIO 配置 | RCC 时钟门控 | 参考手册 |
+|------|---------|-----------|-------------|---------|
+| **F0/L0/G0** | Channel（无 Stream） | CRL/CRH | AHBENR/APBxENR | RM0360/RM0377/RM0444 |
+| **F1** | Channel（无 Stream） | CRL/CRH | AHBENR/APBxENR | RM0008 |
+| **F4/F7** | Stream + Channel | MODER | AHB1ENR/APBxENR | RM0090/RM0385 |
+| **G4/L4** | Channel（无 Stream） | MODER | AHBxENR/APBxENR | RM0440/RM0351 |
+| **H7** | Stream + Channel（DMA1/2 + BDMA） | MODER | AHBxENR/APBxENR | RM0433 |
+
+**判断系列：** 看芯片型号第二位——`STM32F407` = F4 系列，`STM32L476` = L4 系列。或看 CubeMX 生成的 `stm32f4xx.h` 等头文件名。
+
+### ③ 寄存器速查
+
+调试时先读寄存器确认外设实际状态，不要猜。
+
+| 外设 | 关键寄存器 | 看什么 |
+|------|-----------|--------|
+| **DMA** | CCR, CNDTR, CPAR, CMAR (F1/L0/G0) 或 CR, NDTR, PAR, M0AR (F4/F7/H7) | EN 位、传输计数、地址配置 |
+| **TIM** | CR1, CR2, SMCR, ARR, PSC | 使能状态、主从模式、重装值 |
+| **ADC** | SR/ISR, CR1/CR, CR2 | EOC/EOCS 标志、使能状态 |
+| **USART** | SR/ISR, DR/RDR/TDR, BRR | TXE/RXNE 标志、波特率分频 |
+| **I2C** | CR1, CR2, SR1/ISR, SR2/ISR | BUSY/AF 标志、时钟配置 |
+| **SPI** | CR1, CR2, SR | BaudRate、CPOL/CPHA、TXE/RXNE |
+| **RCC** | CR, CFGR, AHBENR/APBxENR (F0/L0) 或 AHB1ENR/APBxENR (F4/F7) | 时钟源使能、外设时钟使能 |
+| **DAC** | CR, SWTRIGR, DHR12R1/2 | 使能、触发、数据保持 |
+| **GPIO** | MODER/CRH+CRL, ODR, IDR, BSRR | 模式、输出/输入状态 |
+| **NVIC** | ISER, ICER, IP | 中断使能、优先级 |
+
+> **寄存器名因芯片系列而异。** 用 CubeMX 生成的代码中的宏名（如 `DMA_SxCR_CIRC`）而不是硬编码地址。HAL 头文件 `stm32f4xx.h`（或对应系列）里有完整定义。
+
+```c
+// 写完寄存器必须读回来确认（用 HAL 宏，跨系列兼容）
+DMA2_Stream0->CR |= DMA_SxCR_CIRC;
+if (!(DMA2_Stream0->CR & DMA_SxCR_CIRC)) {
+    DBG("ERR: CIRC bit not set!");
+}
+// F1/L0 系列用 DMA_Channel_TypeDef:
+// DMA1_Channel1->CCR |= DMA_CCR_CIRC;
+```
+
+**不读回来的后果：** HAL 可能覆盖、时钟没使能写入无效（不报错）、寄存器有写保护、硬件不响应。
+
+### ④ 网上找资料
+
+STM32 HAL 被全球几十万人用，你踩的坑大概率有人踩过。先搜 5 分钟，能省几天。
+
+**搜索源优先级：**
+
+| 优先级 | 来源 | 适用场景 |
+|--------|------|---------|
+| 1 | ST Community (community.st.com) | HAL bug、已知问题、Workaround |
+| 2 | Stack Overflow | 代码级问题、配置方法 |
+| 3 | GitHub Issues | 确认是否是 HAL bug |
+| 4 | CSDN / 博客园 | CubeMX 配置、中文教程 |
+| 5 | 项目里的 HAL 源码 | 最终真相来源 |
+
+**关键词公式：** `HAL_<外设>_<函数名> <症状词>`
+
+| 症状 | 关键词示例 |
+|------|-----------|
+| DMA 只跑一轮 | `HAL_ADC_Start_DMA circular mode` |
+| DAC 欠载中断 | `HAL_DAC_Start_DMA underrun` |
+| 回调不触发 | `HAL DMA callback not called` |
+| I2C 总线锁死 | `stm32 I2C busy flag stuck` |
+| UART 丢数据 | `stm32 UART RX overrun` |
+| ADC 值跳动 | `stm32 ADC noisy reading` |
+| 定时器不准 | `stm32 TIM period wrong` |
+| 栈溢出 | `stm32 FreeRTOS stack overflow` |
+| HardFault | `stm32 HardFault CFSR diagnosis` |
+| Flash 写入失败 | `stm32 HAL_FLASH_Program error` |
+
+**GitHub 无法访问时：** 镜像站 `github.moeyy.xyz`、`ghproxy.com`；或直接读项目里的 HAL 源码（不需要网络）。
+
+**读 HAL 源码路径：**
+```
+Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_<外设>.c   ← F4 系列
+Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_<外设>.c   ← F1 系列
+Drivers/STM32L4xx_HAL_Driver/Src/stm32l4xx_hal_<外设>.c   ← L4 系列
+```
+> 路径中的 `F4xx` 随芯片系列变化。用 Glob 搜 `Drivers/*HAL_Driver/Src/*hal_<外设>.c` 定位。
+
+- 从你调用的函数入口开始，跟踪底层调用
+- 看它操作了哪些寄存器、回调何时触发
+- 示例：`HAL_ADC_Start_DMA` 在 F4 源码第 1461 行调用了 `HAL_DMA_Start_IT`，会覆盖你手动配置的 DMA
+
+### ⑤ HardFault 诊断
+
+不要猜原因，读 Fault Status Register：
+
+```c
+// SCB 寄存器在所有 Cortex-M 上通用（M0/M0+/M3/M4/M7/M33）
+void HardFault_Handler(void) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "HF CFSR:0x%lX HFSR:0x%lX\r\n", SCB->CFSR, SCB->HFSR);
+    HAL_UART_Transmit(&huart1, (uint8_t*)buf, strlen(buf), 10);  // 改为你的串口句柄
+    if (SCB->CFSR & 0x00800000) {  // MMARVALID
+        snprintf(buf, sizeof(buf), "MMFAR:0x%lX\r\n", SCB->MMFAR);
+        HAL_UART_Transmit(&huart1, (uint8_t*)buf, strlen(buf), 10);
+    }
+    if (SCB->CFSR & 0x00008000) {  // BFARVALID
+        snprintf(buf, sizeof(buf), "BFAR:0x%lX\r\n", SCB->BFAR);
+        HAL_UART_Transmit(&huart1, (uint8_t*)buf, strlen(buf), 10);
+    }
+    while (1);
+}
+```
+
+| CFSR 位 | 含义 | 常见原因 |
+|---------|------|---------|
+| bit 1 DACCVIOL | 数据访问违规 | 空指针解引用、访问未映射地址 |
+| bit 4 MSTKERR | 入栈错误 | 栈溢出 |
+| bit 8 IBUSERR | 总线指令错误 | Flash 损坏、时钟未使能 |
+| bit 9 PRECISERR | 精确数据总线错误 | 读 BFAR 获取故障地址 |
+| bit 25 UNDEFINSTR | 未定义指令 | 函数指针损坏、栈溢出覆盖返回地址 |
+| bit 30 FORCED | 强制 HardFault | 其他 Fault 处理函数未实现 |
+
+**HardFault 调试步骤：**
+1. 看串口输出的 CFSR 值
+2. 查上表确定是哪种 Fault
+3. 如果有 MMFAR/BFAR，用 map 文件定位代码位置
+4. 常见根因：空指针、栈溢出、数组越界、未初始化函数指针
+
+### ⑥ 栈溢出检测
+
+**裸机：** 启动时在栈底填入 `0xDEADBEEF`，周期性检查是否被覆盖。
+
+**FreeRTOS：** `configCHECK_FOR_STACK_OVERFLOW = 2`，实现 `vApplicationStackOverflowHook` 回调。
+
+### ⑦ 中断优先级
+
+- 数值越小 = 优先级越高
+- HAL 默认所有中断优先级为 0（最高）——这是陷阱
+- FreeRTOS 中调用 `FromISR` API 的中断必须 ≤ `configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY`
+
+### ⑧ 外设初始化顺序
+
+```
+RCC 时钟使能 → GPIO 配置 → DMA 配置 → 外设配置 → 外设使能 → NVIC 中断使能
+```
+
+```c
+// 以 ADC + DMA 为例
+__HAL_RCC_ADC1_CLK_ENABLE();      // 1. 时钟使能
+__HAL_RCC_DMA2_CLK_ENABLE();
+HAL_GPIO_Init(GPIOA, &gpio_init); // 2. GPIO 配置
+HAL_DMA_Init(&hdma_adc);          // 3. DMA 配置
+__HAL_LINKDMA(&hadc1, DMA_Handle, hdma_adc); // 4. 关联 DMA
+HAL_ADC_Init(&hadc1);             // 5. 外设配置
+HAL_ADC_Start_DMA(&hadc1, buf, n); // 6. 启动
+HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn); // 7. 中断使能
+```
+
+顺序错误不报错，但外设不工作。
+
+### ⑨ Error_Handler 改进
+
+CubeMX 生成的是空死循环。替换为：
+
+```c
+// ⚠️ 方案 B 中 HAL_Delay 依赖 SysTick，时钟未初始化时用方案 A
+// ⚠️ 把 &huart1 改为你的串口句柄（CubeMX 生成的那个）
+void Error_Handler_File(uint32_t line) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "ERR:%lu\r\n", line);
+    HAL_UART_Transmit(&huart1, (uint8_t*)buf, strlen(buf), 10);  // 改为你的串口
+    while (1) { __NOP(); }  // 方案 A：纯串口
+    // while (1) { HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); HAL_Delay(100); }  // 方案 B：串口+LED
+}
+#define Error_Handler() Error_Handler_File(__LINE__)
+```
+
+### ⑩ 烧录后验证
+
+| 检查项 | 方法 |
+|--------|------|
+| 编译时间戳 | main() 开头输出 `__DATE__` `__TIME__` |
+| 增量编译问题 | 改了没效果时 Clean → Rebuild All |
+| 复位是否生效 | 手动按复位键或串口看启动标记 |
+
+**为什么需要复位：** Flash 编程时 CPU 暂停，写完后从暂停位置继续，不是从头开始。复位把 PC 拉到 Reset_Handler。
+
+**复位不生效：** 看门狗使能、NRST 被拉低、Boot0 错误、SWD 复位被禁用。
+
+**Keil：** Project → Options → Debug → ST-Link Settings → 勾选 "Reset after Download"
+**STM32CubeIDE：** Run → Debug Configurations → Debugger → 勾选 "Reset board after programming"
+**STM32CubeProgrammer：** 命令行加 `-rst` 参数
+
+### ⑪ 选外设前查参考手册
+
+嵌入式不能"先做再改"。选外设前查 RM0090 的：功能复用表、触发源列表、DMA 请求表、引脚复用表。
+
+**案例：** TIM9 不能触发 ADC — RM0090 第 13 章明确写了。不查手册浪费两天。
+
+### ⑫ CubeMX 重新生成会覆盖
+
+手动配置写在 `USER CODE BEGIN/END` 之间。`.ioc` 是配置的唯一真相来源——不管用 Keil、STM32CubeIDE 还是 Makefile。生成后对照验证：DMA CIRC 位、MasterSlaveMode、UART 超时。
+
+### ⑬ DBG 调试宏
+
+```c
+// ⚠️ 把 &huart1 改为你的串口句柄
+#ifdef DEBUG_EN
+    #define DBG(fmt, ...) do { \
+        char _b[64]; snprintf(_b, sizeof(_b), fmt "\r\n", ##__VA_ARGS__); \
+        HAL_UART_Transmit(&huart1, (uint8_t*)_b, strlen(_b), 10); \
+    } while(0)
+#else
+    #define DBG(fmt, ...) ((void)0)
+#endif
+```
+
+启动时输出：
+```c
+int main(void) {
+    HAL_Init();
+    SystemClock_Config();
+    MX_GPIO_Init();
+    MX_USART1_UART_Init();  // 串口必须先初始化
+    // ↓ 第一行输出，确认是新代码
+    DBG("BUILD: %s %s", __DATE__, __TIME__);
+    DBG("SYSCLK: %lu Hz", HAL_RCC_GetSysClockFreq());
+    // ... 其他初始化
+}
+```
+
+### ⑭ 编译报错要读
+
+编译器告诉你问题在哪，就读。`main.c(275): error: #20` → 直接打开第 275 行。
+
+---
+
+## 硬件调试基础
+
+固件调试到尽头，可能是硬件问题。
+
+### 电源问题
+
+| 症状 | 可能原因 | 排查方法 |
+|------|---------|---------|
+| 芯片不工作 | LDO 输出不稳 | 万用表量 VCC 引脚电压 |
+| ADC 值跳动 | 电源纹波大 | 示波器看 VCC 波形，加 100nF 去耦电容 |
+| 偶发复位 | 瞬间掉电 | 示波器触发 VCC 下降沿 |
+| 发热严重 | 短路或过载 | 红外测温或手摸，检查焊接 |
+
+### 信号问题
+
+| 接口 | 常见硬件问题 | 排查方法 |
+|------|------------|---------|
+| **I2C** | 缺上拉电阻、地址错误 | 示波器看 SDA/SCL 波形，逻辑分析仪抓地址 |
+| **SPI** | CPOL/CPHA 不匹配、线太长 | 示波器看 CLK 和 MOSI 相位关系 |
+| **UART** | TX/RX 接反、波特率偏差 | 示波器量 TX 波形测波特率 |
+| **ADC** | 输入阻抗不匹配、参考电压不稳 | 万用表量 VREF，示波器看输入波形 |
+
+### 焊接问题
+
+| 症状 | 可能原因 | 排查方法 |
+|------|---------|---------|
+| 某个外设完全不工作 | 引脚虚焊 | 万用表测通断 |
+| 随机 HardFault | BGA 空焊 | X 光检查（工厂级） |
+| 电流异常 | 焊锡短路 | 放大镜检查 + 万用表测阻值 |
+
+**何时用硬件工具：**
+- 万用表：电压、通断、电阻
+- 示波器：波形、时序、频率、信号完整性
+- 逻辑分析仪：协议解码（I2C/SPI/UART 数据包）
+
+**电源检查第一步（万用表）：**
+1. 量 VCC 引脚：3.3V ±5%（3.14V ~ 3.47V）
+2. 量 GND 引脚：确认接地通断
+3. 量 VDDA（模拟电源）：和 VCC 一致
+4. 量 BOOT0 引脚：必须拉低（GND），否则从 bootloader 启动
+
+**I2C 不通排查：**
+1. 万用表量 SDA/SCL 是否有上拉到 VCC（~3.3V）
+2. 示波器看 SCL 有没有时钟输出
+3. 逻辑分析仪抓地址，确认 7 位地址是否正确（注意左移 1 位）
+
+## ⚠️ 时钟与死机预防
+
+### 时钟配置验证（只读，不修改）
 
 ```bash
-# 检查时钟配置（只读）
 python clock_validator.py --ioc project.ioc
-
-# 查看技术规范中的时钟配置
 python tech_spec.py --auto . --text
 ```
 
-### 如果时钟配置有问题
-
-```
-❌ 错误做法：
-  发现时钟配置不对 → 在代码中修改时钟配置
-
-✅ 正确做法：
-  发现时钟配置不对 → 告诉用户在 CubeMX 中修改：
-  1. 打开 project.ioc
-  2. Clock Configuration
-  3. 检查 HSE/HSI 配置
-  4. 检查 PLL 配置
-  5. 检查 SYSCLK 源
-  6. 重新生成代码
-```
-
-### ⚠️ 死机/锁机预防
+### 死机/锁机预防
 
 在烧录前检查固件和配置，防止芯片死机或锁死：
 
@@ -649,60 +1034,103 @@ STM32_Programmer_CLI.exe -c port=SWD mode=UR -w project.axf -v -rst
 - 如果芯片完全锁死，可能需要使用 BOOT0 引脚进入系统引导模式
 - 某些情况下可能需要使用 ST-LINK 的 NRST 引脚手动复位
 
-## 核心原则：CubeMX 配置为基准
+## 项目版本管理与恢复
 
-> **CubeMX 生成的配置文件是项目基准，代码必须适配配置，而不是反过来。**
+嵌入式开发改错一步就可能死机。每次修改前打标记，出问题能秒回上一个正常版本。
 
-### 规则
-
-1. **不修改 CubeMX 生成的文件**
-   - `MX_*` 函数（如 `MX_GPIO_Init`, `MX_USART1_Init`）
-   - `*.ioc` 配置文件
-   - CubeMX 生成的初始化代码
-
-2. **代码适配配置**
-   - 如果 CubeMX 配置了 USART1 115200，代码中使用相同的配置
-   - 如果 CubeMX 配置了 GPIO PA5 输出，代码中使用 PA5
-   - 不要在代码中覆盖 CubeMX 的配置
-
-3. **配置错误处理**
-   - 如果发现配置错误（如时钟不对、引脚冲突）
-   - **不要在代码中绕过**
-   - **告诉用户在 CubeMX 中重新配置**
-   - 提供具体的配置步骤
-
-### 示例
-
-```
-❌ 错误做法：
-  发现 USART1 波特率不对 → 在代码中手动修改波特率
-
-✅ 正确做法：
-  发现 USART1 波特率不对 → 告诉用户在 CubeMX 中修改：
-  1. 打开 project.ioc
-  2. Connectivity → USART1
-  3. 修改 Baud Rate 为 115200
-  4. 重新生成代码
-```
-
-### CubeMX 配置指南
+### 修改前：打版本标记
 
 ```bash
-# 查看 CubeMX 配置指南
-python cubemx_guide.py --peripheral ADC1
-python cubemx_guide.py --peripheral USART1
-python cubemx_guide.py --peripheral I2C1
+# 功能完成后打标记（推荐）
+git add -A && git commit -m "feat: ADC DMA 循环采集正常工作"
+git tag stable/adc-dma-v1
 
-# 检查配置冲突
-python pin_checker.py --ioc project.ioc
-python clock_validator.py --ioc project.ioc
-python peripheral_validator.py --ioc project.ioc
+# 大改动前打标记（方便回退）
+git tag backup/before-dac-dma
 ```
+
+### 出问题时：恢复到上一个正常版本
+
+```bash
+# 查看所有稳定版本标记
+git tag -l "stable/*"
+
+# 查看最近的提交历史
+git log --oneline -10
+
+# 恢复到某个稳定版本（保留当前代码在工作区）
+git stash                    # 先暂存当前改动
+git checkout stable/adc-dma-v1  # 切到正常版本
+
+# 或者直接回退（丢弃当前改动）
+git reset --hard stable/adc-dma-v1
+```
+
+### 配合工作流使用
+
+```bash
+# 1. 功能完成后，跑一遍验证 + 打标记
+python workflow.py --auto . --steps compile,analyze && git tag stable/v1
+
+# 2. 开始新功能开发
+git tag backup/before-new-feature
+
+# 3. 改坏了？回退
+git reset --hard backup/before-new-feature
+
+# 4. 重新编译确认能用
+python workflow.py --auto . --steps compile
+```
+
+### 版本命名建议
+
+| 类型 | 格式 | 示例 |
+|------|------|------|
+| 稳定版本 | `stable/<功能>-vN` | `stable/adc-dma-v1` |
+| 改动前备份 | `backup/before-<改动>` | `backup/before-dac-dma` |
+| 里程碑 | `milestone/<描述>` | `milestone/all-peripherals-ok` |
+| 实验性 | `exp/<描述>` | `exp/double-buffer-try1` |
+
+### 恢复不了的情况
+
+如果连 git 都坏了（比如 .c 文件被覆盖但没 commit）：
+
+```bash
+# 查看文件修改历史
+git log --follow -- Core/Src/adc.c
+
+# 恢复单个文件到某个版本
+git checkout stable/adc-dma-v1 -- Core/Src/adc.c
+
+# 查看某个版本的文件内容
+git show stable/adc-dma-v1:Core/Src/adc.c
+```
+
+### CubeMX 重新生成后回退
+
+CubeMX 重新生成会覆盖手动配置。如果生成后发现配置丢了：
+
+```bash
+# 1. 看哪些文件被改了
+git status
+
+# 2. 只回退 CubeMX 生成的文件（保留 USER CODE 区的修改）
+git checkout HEAD -- Core/Src/main.c Core/Inc/main.h
+
+# 3. 或者回退整个项目到生成前
+git reset --hard HEAD
+```
+
+---
 
 ## 安全约束
 
-- **不全片擦除**（不使用 `-e` 标志）
-- **不写 Option Bytes**
-- **不改读保护**（RDP）
-- **不在用户未确认的情况下烧录到硬件**
-- **编译错误修复遵循最小改动原则**
+| 约束 | 正常情况 | 死机恢复时 |
+|------|---------|-----------|
+| 全片擦除 | ❌ 不用 `-e`，用 sector erase | ✅ 可用 `-e all` |
+| 写 Option Bytes | ❌ 除非用户明确要求 | ✅ 解除 RDP 需要 |
+| 改读保护 RDP | ❌ 不动 | ✅ 需先解除（会擦除全片） |
+| 烧录到硬件 | 需用户确认 | 需用户确认 |
+| 代码修改 | 最小改动原则 | 最小改动原则 |
+
+**判断条件：芯片能连上 SWD → 正常烧录（sector erase）。芯片完全锁死 → 先检查 RDP，再决定是否全片擦除。**

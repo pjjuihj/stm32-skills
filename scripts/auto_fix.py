@@ -872,6 +872,19 @@ def main() -> int:
     if args.auto_fix:
         fixes = fix_errors(errors, args.project)
 
+    # 自动记录到 error_tracker
+    if fixes:
+        try:
+            from shared import run_script
+            for fix in fixes:
+                error_desc = fix.get("description", "编译错误")
+                fix_desc = fix.get("fix", "auto_fix 自动修复")
+                run_script("error_tracker.py", [
+                    "--record", "--error", error_desc, "--fix", fix_desc
+                ], timeout=10)
+        except Exception:
+            pass  # 记录失败不影响主流程
+
     # 输出结果
     if args.text:
         # 人类可读格式

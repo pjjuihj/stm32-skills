@@ -1135,6 +1135,7 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="列出所有记录")
     parser.add_argument("--report", action="store_true", help="生成统计报告")
     parser.add_argument("--suggest", help="获取修复建议")
+    parser.add_argument("--export", metavar="FILE", help="导出为 solutions-log Markdown 文件")
     parser.add_argument("--error", help="错误信息")
     parser.add_argument("--fix", help="修复方法")
     parser.add_argument("--file", help="相关文件")
@@ -1214,6 +1215,66 @@ def main() -> int:
                 print(f"  修复: {s['fix'][:60]}")
         else:
             print(json.dumps(suggestions, indent=2, ensure_ascii=False))
+
+    elif args.export:
+        db = load_database(args.db)
+        records = db.get("records", [])
+
+        # 按日期分组
+        by_date = {}
+        for r in records:
+            if not r.get("fixed"):
+                continue
+            date = r.get("timestamp", "")[:10]
+            if date not in by_date:
+                by_date[date] = []
+            by_date[date].append(r)
+
+        # 生成 Markdown
+        lines = [
+            "# 问题解决记录 (solutions-log)",
+            "",
+            f"生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+            f"总记录: {len(records)} 条（已修复: {sum(1 for r in records if r.get('fixed'))} 条）",
+            "",
+            "---",
+            "",
+        ]
+
+        category_icons = {
+            "compile": "🔨", "link": "🔗", "runtime": "💥",
+            "config": "⚙️", "cubemx": "🧊", "serial": "📡",
+            "i2c": "🔌", "spi": "⚡", "adc": "📊", "other": "❓",
+        }
+
+        for date in sorted(by_date.keys(), reverse=True):
+            lines.append(f"## {date}")
+            lines.append("")
+            for r in by_date[date]:
+                icon = category_icons.get(r.get("category", "other"), "•")
+                lines.append(f"### {icon} #{r['id']}: {r['error'][:60]}")
+                lines.append("")
+                lines.append(f"- **错误**: {r['error']}")
+                if r.get("fix"):
+                    lines.append(f"- **修复**: {r['fix']}")
+                if r.get("file"):
+                    lines.append(f"- **文件**: {r['file']}")
+                if r.get("notes"):
+                    lines.append(f"- **备注**: {r['notes']}")
+                lines.append("")
+
+        markdown = "\n".join(lines)
+
+        # 写入文件
+        with open(args.export, "w", encoding="utf-8") as f:
+            f.write(markdown)
+
+        if args.text:
+            print(f"✅ 已导出到: {args.export}")
+            print(f"  记录数: {len(records)}")
+        else:
+            print(json.dumps({"success": True, "file": args.export, "count": len(records)},
+                             indent=2, ensure_ascii=False))
 
     else:
         parser.print_help()
