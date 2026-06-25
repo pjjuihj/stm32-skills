@@ -68,6 +68,13 @@ python workflow.py --auto . --steps flash,reset --port COM3
 | `cubemx_config.py` | CubeMX 配置 | `--modify project.ioc --add-peripheral ADC1` |
 | `pin_checker.py` | 引脚冲突 | `--ioc project.ioc` |
 | `clock_validator.py` | 时钟验证 | `--ioc project.ioc` |
+| `i2c_scanner.py` | I2C 总线扫描 | `--port COM3` |
+| `reg_dump.py` | 外设寄存器转储 | `--auto . --peripheral GPIO,TIM` |
+| `unit_test.py` | 单元测试 | `--auto . --generate` / `--run` |
+| `power_analyzer.py` | 功耗分析 | `--auto .` |
+| `isr_analyzer.py` | 中断延迟分析 | `--auto .` |
+| `dma_analyzer.py` | DMA 性能分析 | `--auto .` |
+| `adc_analyzer.py` | ADC 噪声分析 | `--auto . --data samples.bin` |
 
 ## 嵌入式工程师守则
 

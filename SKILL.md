@@ -158,6 +158,13 @@ python tech_spec.py --auto . --text
 | `health_check.py` | 项目健康检查 | `--project . --fix` |
 | `code_gen.py` | 代码生成 | `--type uart --name USART1 --output Core/Src` |
 | `detect_config.py` | 项目配置检测 | `--scan .` |
+| `i2c_scanner.py` | I2C 总线扫描 | `--port COM3`（扫描设备地址） |
+| `reg_dump.py` | 外设寄存器转储 | `--auto . --peripheral GPIO,TIM,ADC` |
+| `unit_test.py` | 单元测试框架 | `--auto . --generate` / `--run` |
+| `power_analyzer.py` | 功耗分析 | `--auto .`（低功耗模式建议） |
+| `isr_analyzer.py` | 中断延迟分析 | `--auto .`（优先级配置检查） |
+| `dma_analyzer.py` | DMA 性能分析 | `--auto .`（Stream 冲突检测） |
+| `adc_analyzer.py` | ADC 噪声分析 | `--auto . --data samples.bin`（ENOB/SNR） |
 
 ### 烧录 / 仿真
 
