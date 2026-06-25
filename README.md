@@ -48,6 +48,7 @@ python workflow.py --auto . --steps flash,reset --port COM3
 | `serial_test.py` | 串口测试 | `--port COM3 --test tests.json` |
 | `error_tracker.py` | 错误追踪 | `--record --error "xxx" --fix "xxx"` |
 | `dev_log.py` | 开发日志 | `--auto . --add "功能完成"` |
+| `version.py` | 版本管理 | `--auto . --status` / `--diff` / `--rollback` / `--tag` |
 | `tech_spec.py` | 技术规范 | `--auto . --text` |
 
 ### 分析（按需使用）
@@ -132,6 +133,25 @@ python dev_log.py --auto . --from-git                  # git → 日志
 python dev_log.py --auto . --from-errors               # 错误 → 日志
 python error_tracker.py --export solutions-log.md      # 导出问题解决记录
 python tech_spec.py --auto . --output tech-spec.md     # 生成技术规范
+```
+
+## 版本管理
+
+```bash
+# 版本状态概览
+python version.py --auto . --status
+
+# 自动打版本标签
+python version.py --auto . --tag -m "ADC DMA 正常工作"
+
+# 对比版本差异
+python version.py --auto . --diff
+
+# 一键回退
+python version.py --auto . --rollback
+
+# 保存编译产物快照
+python version.py --auto . --snapshot
 ```
 
 ## 安装依赖

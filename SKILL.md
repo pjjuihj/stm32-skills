@@ -127,6 +127,7 @@ python tech_spec.py --auto . --text
 | `workflow.py` | **一键工作流** | `--auto . --steps compile,analyze` |
 | `dev_loop.py` | **开发模式循环** | `--auto . --port COM3`（文件变化自动编译烧录） |
 | `dev_log.py` | **开发日志** | `--auto . --add "xxx"` / `--from-git` / `--export log.md` |
+| `version.py` | **版本管理** | `--auto . --status` / `--diff` / `--rollback` / `--snapshot` / `--tag` |
 | `serial_debug.py` | **串口调试助手** | `--port COM3 --proto text --send "@LED_ON"` |
 | `serial_test.py` | **串口测试框架** | `--port COM3 --test tests.json` |
 | `error_tracker.py` | **错误追踪** | `--record --error "xxx" --fix "xxx"` / `--export solutions.md` |
@@ -1036,89 +1037,83 @@ STM32_Programmer_CLI.exe -c port=SWD mode=UR -w project.axf -v -rst
 
 ## 项目版本管理与恢复
 
-嵌入式开发改错一步就可能死机。每次修改前打标记，出问题能秒回上一个正常版本。
+嵌入式开发改错一步就可能死机。用 `version.py` 管理版本，出问题能秒回上一个正常版本。
 
-### 修改前：打版本标记
+### 版本状态概览
 
 ```bash
-# 功能完成后打标记（推荐）
-git add -A && git commit -m "feat: ADC DMA 循环采集正常工作"
-git tag stable/adc-dma-v1
-
-# 大改动前打标记（方便回退）
-git tag backup/before-dac-dma
+python version.py --auto . --status
+# 显示：当前分支、最新提交、最新稳定版本、未提交更改、标签数、快照列表
 ```
 
-### 出问题时：恢复到上一个正常版本
+### 自动打版本标签
 
 ```bash
-# 查看所有稳定版本标记
-git tag -l "stable/*"
+# 功能完成后自动打标签（自动递增版本号）
+python version.py --auto . --tag
 
-# 查看最近的提交历史
-git log --oneline -10
+# 带消息
+python version.py --auto . --tag -m "ADC DMA 循环采集正常工作"
 
-# 恢复到某个稳定版本（保留当前代码在工作区）
-git stash                    # 先暂存当前改动
-git checkout stable/adc-dma-v1  # 切到正常版本
-
-# 或者直接回退（丢弃当前改动）
-git reset --hard stable/adc-dma-v1
+# 推送到远程
+git push origin stable/v2
 ```
 
-### 配合工作流使用
+### 版本对比
 
 ```bash
-# 1. 功能完成后，跑一遍验证 + 打标记
-python workflow.py --auto . --steps compile,analyze && git tag stable/v1
+# 对比当前和最新稳定版本
+python version.py --auto . --diff
 
-# 2. 开始新功能开发
-git tag backup/before-new-feature
+# 对比两个版本
+python version.py --auto . --diff stable/v1 stable/v2
 
-# 3. 改坏了？回退
-git reset --hard backup/before-new-feature
-
-# 4. 重新编译确认能用
-python workflow.py --auto . --steps compile
+# 显示：变更文件列表、提交历史、差异统计
 ```
 
-### 版本命名建议
-
-| 类型 | 格式 | 示例 |
-|------|------|------|
-| 稳定版本 | `stable/<功能>-vN` | `stable/adc-dma-v1` |
-| 改动前备份 | `backup/before-<改动>` | `backup/before-dac-dma` |
-| 里程碑 | `milestone/<描述>` | `milestone/all-peripherals-ok` |
-| 实验性 | `exp/<描述>` | `exp/double-buffer-try1` |
-
-### 恢复不了的情况
-
-如果连 git 都坏了（比如 .c 文件被覆盖但没 commit）：
+### 一键回退
 
 ```bash
-# 查看文件修改历史
-git log --follow -- Core/Src/adc.c
+# 回退到上一个稳定版本（自动备份当前状态）
+python version.py --auto . --rollback
 
-# 恢复单个文件到某个版本
-git checkout stable/adc-dma-v1 -- Core/Src/adc.c
+# 回退到指定版本
+python version.py --auto . --rollback stable/v1
 
-# 查看某个版本的文件内容
-git show stable/adc-dma-v1:Core/Src/adc.c
+# 强制回退（丢弃未提交更改）
+python version.py --auto . --rollback stable/v1 --force
 ```
 
-### CubeMX 重新生成后回退
-
-CubeMX 重新生成会覆盖手动配置。如果生成后发现配置丢了：
+### 保存编译产物快照
 
 ```bash
-# 1. 看哪些文件被改了
-git status
+# 保存当前 .hex/.axf/.map 到 snapshots/ 目录
+python version.py --auto . --snapshot
 
-# 2. 只回退 CubeMX 生成的文件（保留 USER CODE 区的修改）
+# 快照包含：编译产物 + 版本信息（git hash、提交消息）
+```
+
+### 列出所有版本
+
+```bash
+python version.py --auto . --list
+# 显示：stable/backup/milestone/experiment 分类，日期，hash，消息
+```
+
+### 版本命名规范
+
+| 类型 | 前缀 | 示例 | 用途 |
+|------|------|------|------|
+| 稳定版本 | `stable/` | `stable/v1` | 功能验证通过 |
+| 改动前备份 | `backup/` | `backup/before-dac-dma` | 大改动前 |
+| 里程碑 | `milestone/` | `milestone/all-peripherals-ok` | 阶段性成果 |
+| 实验性 | `exp/` | `exp/double-buffer-try1` | 实验代码 |
+
+### CubeMX 回退
+
+```bash
+# 回退 CubeMX 生成的文件（保留 USER CODE 区）
 git checkout HEAD -- Core/Src/main.c Core/Inc/main.h
-
-# 3. 或者回退整个项目到生成前
-git reset --hard HEAD
 ```
 
 ---
