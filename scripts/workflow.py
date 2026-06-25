@@ -16,6 +16,7 @@
   optimize  - 优化建议
   simulate  - Renode 仿真
   flash     - 烧录到硬件（需指定 --port 或确认）
+  reset     - 烧录后复位设备（需指定 --port）
   serial    - 串口验证
   health    - 项目健康检查
 """
@@ -27,6 +28,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -332,6 +334,137 @@ def run_flash(paths: dict, port: str | None = None, firmware: str | None = None)
     return {"success": False, "error": "无可用烧录方式（需要 ST-LINK 或 USB DFU + COM 端口）"}
 
 
+def run_reset(port: str, baud: int = 115200, method: str = "dtr",
+              verify: bool = False, verify_pattern: str = None,
+              retry: int = 1) -> dict:
+    """烧录后复位设备。
+
+    Args:
+        port: 串口号
+        baud: 波特率
+        method: 复位方法 (dtr/rts/dtr_rts/break/break_dtr/custom/bootloader)
+        verify: 复位后验证设备响应
+        verify_pattern: 验证匹配的字符串
+        retry: 重试次数
+
+    Returns:
+        复位结果
+    """
+    try:
+        import serial as pyserial
+        import serial.tools.list_ports
+    except ImportError:
+        return {"success": False, "error": "需要 pyserial: pip install pyserial"}
+
+    # 检查串口
+    available = [p.device for p in serial.tools.list_ports.comports()]
+    if port not in available:
+        return {"success": False, "error": f"串口 {port} 不可用", "available": available}
+
+    last_error = None
+    for attempt in range(1, retry + 1):
+        if attempt > 1:
+            print(f"  复位重试 {attempt}/{retry}...")
+
+        ser = None
+        try:
+            ser = pyserial.Serial(port=port, baudrate=baud, timeout=1)
+            ser.reset_input_buffer()
+
+            # 执行复位序列
+            if method == "dtr":
+                ser.dtr = False
+                time.sleep(0.1)
+                ser.dtr = True
+                time.sleep(0.5)
+
+            elif method == "rts":
+                ser.rts = False
+                time.sleep(0.1)
+                ser.rts = True
+                time.sleep(0.5)
+
+            elif method == "dtr_rts":
+                ser.dtr = False
+                ser.rts = True
+                time.sleep(0.1)
+                ser.dtr = True
+                ser.rts = False
+                time.sleep(0.5)
+
+            elif method == "break":
+                ser.send_break(duration=0.1)
+                time.sleep(0.5)
+
+            elif method == "break_dtr":
+                ser.send_break(duration=0.1)
+                time.sleep(0.1)
+                ser.dtr = False
+                time.sleep(0.1)
+                ser.dtr = True
+                time.sleep(0.5)
+
+            elif method == "custom":
+                ser.dtr = False
+                ser.rts = False
+                time.sleep(0.1)
+                ser.dtr = True
+                ser.rts = True
+                time.sleep(0.5)
+
+            elif method == "bootloader":
+                ser.rts = True
+                time.sleep(0.1)
+                ser.dtr = False
+                time.sleep(0.1)
+                ser.dtr = True
+                time.sleep(1.0)
+                ser.write(bytes([0x7F]))
+                time.sleep(0.1)
+
+            else:
+                ser.close()
+                return {"success": False, "error": f"未知复位方法: {method}"}
+
+            # 验证
+            if verify:
+                start = time.time()
+                received = bytearray()
+                while time.time() - start < 3.0:
+                    data = ser.read(64)
+                    if data:
+                        received.extend(data)
+                        text = bytes(received).decode("utf-8", errors="replace")
+                        if verify_pattern and verify_pattern in text:
+                            ser.close()
+                            return {"success": True, "method": method, "matched": verify_pattern,
+                                    "data": text[:100], "attempt": attempt}
+                        for marker in ["STM32", "Ready", "Boot", "running"]:
+                            if marker.lower() in text.lower():
+                                ser.close()
+                                return {"success": True, "method": method, "matched": marker,
+                                        "data": text[:100], "attempt": attempt}
+                if received:
+                    text = bytes(received).decode("utf-8", errors="replace")
+                    ser.close()
+                    return {"success": True, "method": method, "matched": "data_received",
+                            "data": text[:100], "attempt": attempt}
+                ser.close()
+                last_error = "未收到设备响应"
+                continue
+
+            ser.close()
+            return {"success": True, "method": method, "attempt": attempt}
+
+        except Exception as e:
+            if ser and ser.is_open:
+                ser.close()
+            last_error = str(e)
+            continue
+
+    return {"success": False, "error": last_error or "复位失败", "method": method}
+
+
 def run_health(paths: dict) -> dict:
     """运行项目健康检查。"""
     project_dir = paths.get("project_dir", ".")
@@ -506,11 +639,12 @@ def run_post_analysis(paths: dict, workflow_result: dict) -> dict:
 
 # === 主流程 ===
 
-VALID_STEPS = ["compile", "analyze", "optimize", "simulate", "flash", "serial", "health", "report", "brick_check"]
+VALID_STEPS = ["compile", "analyze", "optimize", "simulate", "flash", "reset", "serial", "health", "report", "brick_check"]
 
 def run_workflow(paths: dict, steps: list[str], port: str | None = None,
                  firmware: str | None = None, max_fix_rounds: int = 3,
-                 serial_config: dict = None) -> dict:
+                 serial_config: dict = None,
+                 reset_config: dict = None) -> dict:
     """执行工作流。"""
     results = {
         "project_dir": paths.get("project_dir", ""),
@@ -527,6 +661,14 @@ def run_workflow(paths: dict, steps: list[str], port: str | None = None,
     duration = serial_config.get("duration", 10.0)
     test_commands = serial_config.get("test_commands", [])
     batch_file = serial_config.get("batch_file", "")
+
+    # 复位配置
+    if reset_config is None:
+        reset_config = {}
+    reset_method = reset_config.get("method", "dtr")
+    reset_verify = reset_config.get("verify", False)
+    reset_verify_pattern = reset_config.get("verify_pattern", None)
+    reset_retry = reset_config.get("retry", 1)
 
     for step in steps:
         print(f"\n{'#'*60}")
@@ -551,6 +693,28 @@ def run_workflow(paths: dict, steps: list[str], port: str | None = None,
 
         elif step == "flash":
             results["steps"]["flash"] = run_flash(paths, port, firmware)
+
+        elif step == "reset":
+            if port:
+                print(f"\n复位设备 (方法: {reset_method})...")
+                results["steps"]["reset"] = run_reset(
+                    port=port,
+                    baud=baud,
+                    method=reset_method,
+                    verify=reset_verify,
+                    verify_pattern=reset_verify_pattern,
+                    retry=reset_retry,
+                )
+                r = results["steps"]["reset"]
+                if r["success"]:
+                    print(f"✅ 复位成功 (方法: {r.get('method', 'N/A')})")
+                    if r.get("matched"):
+                        print(f"   验证: 匹配 '{r['matched']}'")
+                else:
+                    print(f"⚠️ 复位失败: {r.get('error')}")
+            else:
+                results["steps"]["reset"] = {"skipped": True, "reason": "未指定 --port"}
+                print("⚠️ 跳过复位（未指定 --port）")
 
         elif step == "serial":
             # 如果有批量命令文件，读取命令
@@ -618,6 +782,8 @@ def main() -> int:
   %(prog)s --auto . --steps compile,analyze      # 编译+分析
   %(prog)s --auto . --steps compile,analyze,report  # 编译+分析+报告
   %(prog)s --auto . --steps compile,analyze,flash --port COM3
+  %(prog)s --auto . --steps flash,reset --port COM3  # 烧录+复位
+  %(prog)s --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
 
 可用步骤: {', '.join(VALID_STEPS)}
 
@@ -644,6 +810,15 @@ report 步骤会自动运行 error_summary.py 和 tech_spec.py 生成错误总�
                         help="串口监听时长/秒 (默认: 10)")
     parser.add_argument("--serial-cmd", help="串口测试命令，逗号分隔")
     parser.add_argument("--serial-batch", help="串口批量命令文件")
+
+    # 复位配置参数
+    parser.add_argument("--reset-method", choices=["dtr", "rts", "dtr_rts", "break", "break_dtr", "custom", "bootloader"],
+                        default="dtr", help="复位方法 (默认: dtr)")
+    parser.add_argument("--reset-verify", action="store_true",
+                        help="复位后验证设备响应")
+    parser.add_argument("--reset-verify-pattern", help="复位验证匹配的字符串")
+    parser.add_argument("--reset-retry", type=int, default=1,
+                        help="复位重试次数 (默认: 1)")
 
     # 手动指定参数（兼容非 --auto 模式）
     parser.add_argument("--uv4", help="UV4.exe 路径")
@@ -694,6 +869,14 @@ report 步骤会自动运行 error_summary.py 和 tech_spec.py 生成错误总�
     if args.serial_cmd:
         serial_config["test_commands"] = [cmd.strip() for cmd in args.serial_cmd.split(",")]
 
+    # 复位配置
+    reset_config = {
+        "method": args.reset_method,
+        "verify": args.reset_verify,
+        "verify_pattern": args.reset_verify_pattern,
+        "retry": args.reset_retry,
+    }
+
     # 执行工作流
     results = run_workflow(
         paths, steps,
@@ -701,6 +884,7 @@ report 步骤会自动运行 error_summary.py 和 tech_spec.py 生成错误总�
         firmware=args.firmware,
         max_fix_rounds=args.max_fix_rounds,
         serial_config=serial_config,
+        reset_config=reset_config,
     )
 
     # 输出结果

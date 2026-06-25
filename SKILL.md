@@ -39,7 +39,7 @@ python workflow.py --auto . --steps health
 # 死机锁死预防检查
 python workflow.py --auto . --steps brick_check
 
-# 可用步骤: compile, analyze, optimize, simulate, flash, serial, health, report, brick_check
+# 可用步骤: compile, analyze, optimize, simulate, flash, reset, serial, health, report, brick_check
 ```
 
 `--auto .` 会自动检测 `.uvprojx` 项目文件、`.axf` 编译产物、UV4.exe 路径，无需手动指定任何参数。
@@ -73,6 +73,12 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 
 # 完整流程（含烧录和串口验证）
 python workflow.py --auto . --steps compile,analyze,optimize,flash,serial,report --port COM3
+
+# 烧录 + 复位
+python workflow.py --auto . --steps flash,reset --port COM3
+
+# 烧录 + 复位 + 验证
+python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
 
 # 只编译
 python workflow.py --auto . --steps compile
@@ -216,6 +222,38 @@ python cubemx_config.py --generate project.ioc --toolchain "MDK-ARM V5"
 ```
 
 详细配置参考：`references/cubemx_quick_ref.md`
+
+## 烧录后复位
+
+```bash
+# 烧录 + 复位
+python workflow.py --auto . --steps flash,reset --port COM3
+
+# 烧录 + DTR+RTS 复位
+python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts
+
+# 烧录 + 复位 + 验证
+python workflow.py --auto . --steps flash,reset --port COM3 --reset-method dtr_rts --reset-verify
+
+# 复位 + 串口验证
+python workflow.py --auto . --steps reset,serial --port COM3 --reset-verify
+
+# 进入 bootloader 模式
+python workflow.py --auto . --steps reset --port COM3 --reset-method bootloader
+
+# 复位重试
+python workflow.py --auto . --steps reset --port COM3 --reset-retry 3
+```
+
+| 复位方法 | 说明 |
+|---------|------|
+| `dtr` | DTR → NRST |
+| `rts` | RTS → NRST |
+| `dtr_rts` | DTR+RTS 组合（CH340/CP2102） |
+| `break` | BREAK 信号 |
+| `break_dtr` | BREAK + DTR |
+| `custom` | DTR+RTS 同时操作 |
+| `bootloader` | 进入 STM32 bootloader（0x7F 握手） |
 
 ## 串口验证
 

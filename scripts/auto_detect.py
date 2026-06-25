@@ -97,7 +97,7 @@ def resolve_paths(config: dict, project_dir: str) -> dict:
         包含 uv4_path, project_file, elf_path, src_dir, chip 等的字典
     """
     project = Path(project_dir)
-    result = {}
+    result = {"project_dir": str(project.resolve())}
 
     # UV4 路径（从配置推断或查找）
     ide = config.get("ide", "")
