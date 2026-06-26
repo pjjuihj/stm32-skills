@@ -23,7 +23,11 @@ import argparse
 from datetime import datetime
 
 # 设置标准输出编码为UTF-8
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 class UARTTester:
     """UART测试类"""
@@ -50,6 +54,9 @@ class UARTTester:
                 baudrate=self.baudrate,
                 timeout=self.timeout
             )
+            # 清空串口缓冲区，避免积压数据混入
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
             print(f"串口已打开: {self.ser.name}")
             print(f"波特率: {self.baudrate}")
             print(f"超时: {self.timeout}秒")
@@ -79,43 +86,61 @@ class UARTTester:
         self.received_data = []
         start_time = time.time()
         self.is_running = True
-        buffer = b""
+        line_buf = bytearray()
 
         try:
             print(f"\n等待接收数据...\n")
 
             while time.time() - start_time < duration and self.is_running:
-                if self.ser.in_waiting:
-                    data = self.ser.read(self.ser.in_waiting)
-                    buffer += data
-
-                    # 检查是否有完整行（以\r\n结尾）
-                    while b"\r\n" in buffer:
-                        line, buffer = buffer.split(b"\r\n", 1)
+                # 始终尝试读取，无数据时阻塞等待超时
+                waiting = self.ser.in_waiting
+                data = self.ser.read(waiting if waiting > 0 else 1)
+                if not data:
+                    # 超时无数据，处理缓冲区中的残留行
+                    if line_buf:
                         timestamp = time.time() - start_time
+                        line = bytes(line_buf)
                         self.received_data.append({
                             'timestamp': timestamp,
                             'data': line
                         })
-
-                        # 格式化数据显示
                         display_data = self._format_data(line)
-
                         if show_timestamp:
                             print(f"[{timestamp:8.3f}] {display_data}")
                         else:
                             print(f"{display_data}")
+                        line_buf.clear()
+                    continue
 
-                time.sleep(0.01)
+                # 逐字节处理，以\n为行结束符
+                for b in data:
+                    if b == ord('\n'):
+                        timestamp = time.time() - start_time
+                        line = bytes(line_buf)
+                        self.received_data.append({
+                            'timestamp': timestamp,
+                            'data': line
+                        })
+                        display_data = self._format_data(line)
+                        if show_timestamp:
+                            print(f"[{timestamp:8.3f}] {display_data}")
+                        else:
+                            print(f"{display_data}")
+                        line_buf.clear()
+                    elif b == ord('\r'):
+                        pass  # 忽略回车符
+                    else:
+                        line_buf.append(b)
 
             # 处理剩余数据
-            if buffer:
+            if line_buf:
                 timestamp = time.time() - start_time
+                line = bytes(line_buf)
                 self.received_data.append({
                     'timestamp': timestamp,
-                    'data': buffer
+                    'data': line
                 })
-                display_data = self._format_data(buffer)
+                display_data = self._format_data(line)
                 if show_timestamp:
                     print(f"[{timestamp:8.3f}] {display_data}")
                 else:
