@@ -83,10 +83,28 @@ LOW_POWER_MODES = {
 def parse_ioc_config(project_dir: str) -> dict:
     """解析 .ioc 文件中的外设配置。"""
     ioc_file = None
+    # 优先查找项目名.ioc（如 project_led.ioc）
+    project_name = os.path.basename(project_dir)
     for f in os.listdir(project_dir):
         if f.endswith(".ioc"):
-            ioc_file = os.path.join(project_dir, f)
-            break
+            if f == f"{project_name}.ioc":
+                ioc_file = os.path.join(project_dir, f)
+                break
+    # 如果没找到，找第一个有 Mcu.IP 的 .ioc 文件
+    if not ioc_file:
+        for f in os.listdir(project_dir):
+            if f.endswith(".ioc"):
+                filepath = os.path.join(project_dir, f)
+                with open(filepath, "r", encoding="utf-8") as fh:
+                    if "Mcu.IP0=" in fh.read():
+                        ioc_file = filepath
+                        break
+    # 还没找到，用第一个 .ioc 文件
+    if not ioc_file:
+        for f in os.listdir(project_dir):
+            if f.endswith(".ioc"):
+                ioc_file = os.path.join(project_dir, f)
+                break
 
     if not ioc_file:
         return {}
@@ -104,14 +122,39 @@ def parse_ioc_config(project_dir: str) -> dict:
                 key = key.strip()
                 value = value.strip()
 
-                # 外设使能
+                # 引脚模式（PA10.Mode=Asynchronous）
                 if key.endswith(".Mode"):
-                    periph = key.split(".")[0]
-                    config["peripherals"][periph] = value
+                    pin = key.split(".")[0]
+                    # 从引脚模式推断外设
+                    if value == "Asynchronous":
+                        if pin.startswith("PA"):
+                            config["peripherals"][f"USART_pin_{pin}"] = value
+                    elif value == "I2C":
+                        config["peripherals"][f"I2C_pin_{pin}"] = value
+                    elif value == "SPI":
+                        config["peripherals"][f"SPI_pin_{pin}"] = value
+                    elif value == "GPIO_Output" or value == "GPIO_Input":
+                        config["peripherals"][f"GPIO_pin_{pin}"] = value
 
-                # 引脚配置
-                if "GPIO" in key and "Signal" in key:
-                    config["pins"][key] = value
+                # 外设配置（Pxx.Signal=...）
+                if "Signal" in key:
+                    pin = key.split(".")[0]
+                    config["pins"][pin] = value
+
+                # Mcu.IP 格式（Mcu.IP0=ADC1）
+                if key.startswith("Mcu.IP") and key != "Mcu.IPNb":
+                    periph_name = value
+                    # 过滤掉非外设名称（纯数字等）
+                    if periph_name and not periph_name.isdigit():
+                        if periph_name not in config["peripherals"]:
+                            config["peripherals"][periph_name] = "enabled"
+
+                # 直接外设配置（ADC1, DAC1, TIM5 等）
+                if "." in key:
+                    periph_name = key.split(".")[0]
+                    if periph_name.startswith(("ADC", "DAC", "TIM", "USART", "UART", "I2C", "SPI", "DMA")):
+                        if periph_name not in config["peripherals"]:
+                            config["peripherals"][periph_name] = value
 
     return config
 
