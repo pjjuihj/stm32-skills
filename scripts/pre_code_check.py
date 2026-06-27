@@ -66,8 +66,37 @@ def find_inc_dir(project_dir: str) -> Path | None:
     return None
 
 
+def find_all_src_dirs(project_dir: str) -> list[Path]:
+    """查找所有源码目录（Core/Src, Drivers/*, Middlewares/*）。"""
+    base = Path(project_dir)
+    dirs = []
+
+    # Core/Src（主要源码）
+    core_src = base / "Core" / "Src"
+    if core_src.exists():
+        dirs.append(core_src)
+
+    # Drivers 目录（OLED 等第三方驱动）
+    drivers_dir = base / "Drivers"
+    if drivers_dir.exists():
+        for d in drivers_dir.iterdir():
+            if d.is_dir() and d.name not in ("CMSIS", "STM32F4xx_HAL_Driver"):
+                if any(d.glob("*.c")):
+                    dirs.append(d)
+
+    # Middlewares 目录（FreeRTOS 配置等）
+    mw_dir = base / "Middlewares"
+    if mw_dir.exists():
+        for d in mw_dir.rglob("*"):
+            if d.is_dir() and d.name == "Config":
+                if any(d.glob("*.c")):
+                    dirs.append(d)
+
+    return dirs
+
+
 def read_c_files(src_dir: Path) -> list[tuple[str, str]]:
-    """读取所有 .c 文件，返回 (文件名, 内容) 列表。"""
+    """读取目录下所有 .c 文件。"""
     results = []
     for f in sorted(src_dir.glob("*.c")):
         try:
@@ -78,8 +107,21 @@ def read_c_files(src_dir: Path) -> list[tuple[str, str]]:
     return results
 
 
+def read_all_c_files(project_dir: str) -> list[tuple[str, str]]:
+    """读取所有源码目录的 .c 文件。"""
+    results = []
+    for d in find_all_src_dirs(project_dir):
+        for f in sorted(d.glob("*.c")):
+            try:
+                content = f.read_text(encoding="utf-8", errors="ignore")
+                results.append((f"{d.name}/{f.name}", content))
+            except Exception:
+                pass
+    return results
+
+
 def read_h_files(inc_dir: Path) -> list[tuple[str, str]]:
-    """读取所有 .h 文件，返回 (文件名, 内容) 列表。"""
+    """读取目录下所有 .h 文件。"""
     results = []
     for f in sorted(inc_dir.glob("*.h")):
         try:
@@ -1012,13 +1054,16 @@ custom_patterns:
     # 加载项目配置
     config = load_project_config(project_dir)
 
+    # 显示所有源码目录
+    all_src_dirs = find_all_src_dirs(project_dir)
     print(f"\n{BOLD}写代码前检查流{RESET}")
     print(f"项目: {Path(project_dir).resolve()}")
-    print(f"源码: {src_dir}")
+    print(f"源码目录: {', '.join(d.name for d in all_src_dirs)}")
 
     check_type = args.check.lower()
     all_suites = []
 
+    # 使用扩展的源码目录进行检查
     if check_type in ("all", "init"):
         all_suites.append(("第 2 步：检查初始化链", check_init_chain(src_dir, inc_dir)))
 
@@ -1039,6 +1084,25 @@ custom_patterns:
 
     if check_type in ("all", "chain"):
         all_suites.append(("调用链验证", check_call_chains(src_dir)))
+
+    # 额外检查 Drivers 目录（第三方驱动）
+    if check_type in ("all", "drivers"):
+        for d in find_all_src_dirs(project_dir):
+            if d.name not in ("Src",):  # 跳过 Core/Src（已检查）
+                suite = CheckSuite()
+                c_files = read_c_files(d)
+                for fname, content in c_files:
+                    # 检查第三方驱动的基本质量
+                    has_include_guard = bool(re.search(r'#ifndef|#pragma once', content))
+                    if not has_include_guard and fname.endswith(".h"):
+                        suite.add(CheckResult(
+                            "第三方驱动头文件有 include 守卫",
+                            False,
+                            "缺少 #ifndef 或 #pragma once",
+                            f"{d.name}/{fname}"
+                        ))
+                if suite.results:
+                    all_suites.append((f"第三方驱动检查 ({d.name})", suite))
 
     total_passed = 0
     total_errors = 0
