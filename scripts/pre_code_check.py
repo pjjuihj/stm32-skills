@@ -567,6 +567,19 @@ def check_display(src_dir: Path) -> CheckSuite:
     suite = CheckSuite()
     c_files = read_c_files(src_dir)
 
+    # 检查 0: 头文件 include 守卫
+    inc_dir = src_dir.parent / "Inc" if src_dir.name == "Src" else src_dir.parent / "inc"
+    if inc_dir.exists():
+        h_files = read_h_files(inc_dir)
+        for fname, content in h_files:
+            has_guard = bool(re.search(r'#ifndef\s+\w+_H|#pragma\s+once', content))
+            suite.add(CheckResult(
+                "头文件有 include 守卫",
+                has_guard,
+                "缺少 #ifndef 或 #pragma once" if not has_guard else "",
+                fname
+            ))
+
     # 检查 1: 波形显示用 min/max 包络
     for fname, content in c_files:
         if 'Draw_Waveform' in content or 'draw_waveform' in content.lower():
@@ -744,21 +757,45 @@ def auto_fix(project_dir: str, suites: list[tuple[str, CheckSuite]]) -> int:
                 continue
 
             # 修复 1: osc_config_buffer_size 重复变量
+            # 删除变量定义，将所有引用替换为 osc_config.buffer_size
             if "重复变量" in r.name and "buffer_size" in r.name:
                 fname = "oscilloscope.c"
                 fpath = src_dir / fname
                 if fpath.exists():
                     content = fpath.read_text(encoding="utf-8")
-                    # 删除重复变量定义
+                    # 删除重复变量定义（包括注释）
                     new_content = re.sub(
-                        r'\n/\*.*?副本.*?\*/\nuint32_t osc_config_buffer_size.*?;\n',
+                        r'\n/\*.*?副本.*?\*/\nvolatile\s+uint32_t\s+osc_config_buffer_size.*?;\n',
                         '\n',
                         content,
                         flags=re.DOTALL
                     )
+                    # 将 osc_config_buffer_size 替换为 osc_config.buffer_size
+                    new_content = new_content.replace(
+                        'osc_config_buffer_size',
+                        'osc_config.buffer_size'
+                    )
                     if new_content != content:
                         fpath.write_text(new_content, encoding="utf-8")
-                        print(f"  {GREEN}✅ 已修复: 删除 {fname} 中的重复变量 osc_config_buffer_size{RESET}")
+                        print(f"  {GREEN}✅ 已修复: 删除 {fname} 中的重复变量，引用改为 osc_config.buffer_size{RESET}")
+                        fixed += 1
+                # 同时修复 stm32f4xx_it.c 中的 extern 声明
+                it_fname = "stm32f4xx_it.c"
+                it_path = src_dir / it_fname
+                if it_path.exists():
+                    it_content = it_path.read_text(encoding="utf-8")
+                    it_new = it_content.replace(
+                        'extern volatile uint32_t osc_config_buffer_size;',
+                        'extern volatile uint32_t osc_config_buffer_size;  /* 已废弃，改用 osc_config.buffer_size */'
+                    )
+                    # 将使用处也替换
+                    it_new = it_new.replace(
+                        'osc_config_buffer_size / 2',
+                        'osc_config.buffer_size / 2'
+                    )
+                    if it_new != it_content:
+                        it_path.write_text(it_new, encoding="utf-8")
+                        print(f"  {GREEN}✅ 已修复: {it_fname} 中的引用改为 osc_config.buffer_size{RESET}")
                         fixed += 1
 
             # 修复 2: 全局变量加 static（简单情况）
@@ -819,7 +856,44 @@ def main():
     parser.add_argument("--project", metavar="DIR", help="项目根目录（--auto 的别名）")
     parser.add_argument("--fix", action="store_true", help="自动修复可修复的问题")
     parser.add_argument("--history", action="store_true", help="搜索相关历史错误")
+    parser.add_argument("--init-config", action="store_true", help="生成项目配置文件模板")
     args = parser.parse_args()
+
+    project_dir = args.auto or args.project or "."
+    if not Path(project_dir).exists():
+        print(f"{RED}错误: 目录不存在: {project_dir}{RESET}", file=sys.stderr)
+        sys.exit(1)
+
+    # 生成配置文件模板
+    if args.init_config:
+        config_path = Path(project_dir) / CONFIG_FILE
+        if config_path.exists():
+            print(f"{YELLOW}配置文件已存在: {config_path}{RESET}")
+        else:
+            config_path.write_text("""# pre_code_check 项目配置文件
+# 详见: python pre_code_check.py --help
+
+# 排除的文件（不检查）
+exclude_files:
+  - "code_reviewer.c"
+  - "ring_buffer.c"
+
+# 排除的检查项（文件:检查名 格式）
+exclude_checks:
+  - "display.c:LOG_INFO"
+  - "oscilloscope.c:LOG_INFO"
+
+# 自定义检查模式（正则表达式）
+custom_patterns:
+  - name: "I2C 总线恢复"
+    pattern: "HAL_I2C_Master_Transmit.*while"
+    severity: "warning"
+""", encoding="utf-8")
+            print(f"{GREEN}✅ 已生成配置文件: {config_path}{RESET}")
+        sys.exit(0)
+
+    src_dir = find_src_dir(project_dir)
+    inc_dir = find_inc_dir(project_dir)
 
     project_dir = args.auto or args.project or "."
     if not Path(project_dir).exists():
