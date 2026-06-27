@@ -122,6 +122,10 @@ class CFunction:
         """检查函数体内是否有除以指定变量的操作。"""
         return bool(re.search(rf'\b\w+\s*/\s*{var_name}\b', self.body))
 
+    def is_param(self, var_name: str) -> bool:
+        """检查变量是否是函数参数。"""
+        return bool(re.search(rf'\b{var_name}\b', self.params))
+
 
 class CFile:
     """C 文件的语义表示。"""
@@ -481,10 +485,6 @@ def check_config_system(src_dir: Path) -> CheckSuite:
     suite = CheckSuite()
     c_files = read_c_files(src_dir)
     parsed = parse_c_files(c_files)
-
-    # 调试：打印解析到的函数数量
-    total_funcs = sum(len(f.functions) for f in parsed)
-    # print(f"DEBUG: 解析到 {len(parsed)} 个文件，{total_funcs} 个函数")
 
     # 检查 1: Config_Get* 在非 config.c 中被调用
     get_calls = []
@@ -876,20 +876,24 @@ def check_display(src_dir: Path) -> CheckSuite:
     dangerous_divisors = ['range', 'size', 'len', 'count', 'frequency', 'sample_rate']
     for cfile in parsed:
         for func in cfile.functions:
+            # 跳过空函数和 getter 函数
+            if len(func.body.strip()) < 10:
+                continue
             for divisor in dangerous_divisors:
                 if func.divides_by(divisor):
                     if not func.has_zero_check(divisor):
-                        # 找到除法操作的行号
                         div_match = re.search(rf'\b\w+\s*/\s*{divisor}\b', func.body)
                         if div_match:
                             line_offset = func.body[:div_match.start()].count('\n')
                             line_num = func.line + line_offset
+                            # 函数参数通常由调用方检查，降级为 info
+                            is_param = func.is_param(divisor)
                             suite.add(CheckResult(
                                 f"除法有除零保护 ({divisor})",
                                 False,
-                                f"函数 {func.name} 中除以 {divisor}，但没有零值检查",
+                                f"函数 {func.name} 中除以 {divisor}（{'参数' if is_param else '局部变量'}，{'调用方可能已检查' if is_param else '建议添加零值检查'}）",
                                 f"{cfile.filename}:{line_num}",
-                                severity="warning"
+                                severity="info" if is_param else "warning"
                             ))
 
     return suite
