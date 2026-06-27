@@ -42,6 +42,198 @@ RESET = "\033[0m"
 BOLD = "\033[1m"
 
 
+# ============================================================
+# 语义分析模块
+# ============================================================
+
+class CFunction:
+    """C 函数的语义表示。"""
+
+    def __init__(self, name: str, return_type: str, params: str, body: str,
+                 file: str, line: int):
+        self.name = name
+        self.return_type = return_type
+        self.params = params
+        self.body = body
+        self.file = file
+        self.line = line
+
+    def calls(self, func_name: str) -> bool:
+        """检查函数体内是否调用了指定函数（支持前缀匹配）。"""
+        # 匹配 func_name 或 func_nameXXX( 形式的函数调用
+        return bool(re.search(rf'{func_name}\w*\s*\(', self.body))
+
+    def calls_in_all_branches(self, func_name: str) -> bool:
+        """检查函数是否在所有分支中都调用了指定函数。"""
+        # 简化检查：找 if/else 块，检查每个块中是否都有调用
+        # 这是一个启发式检查，不是完整的控制流分析
+        if_blocks = re.findall(r'if\s*\([^)]+\)\s*\{([^}]+)\}', self.body, re.DOTALL)
+        else_blocks = re.findall(r'else\s*\{([^}]+)\}', self.body, re.DOTALL)
+
+        if not if_blocks:
+            # 没有 if/else，直接检查整个函数体
+            return self.calls(func_name)
+
+        # 检查每个 if 块中是否都有调用
+        for block in if_blocks:
+            if func_name not in block:
+                return False
+
+        # 如果有 else 块，也检查
+        if else_blocks:
+            for block in else_blocks:
+                if func_name not in block:
+                    return False
+
+        return True
+
+    def has_zero_check(self, var_name: str) -> bool:
+        """检查函数体内是否有对指定变量的零值检查。"""
+        patterns = [
+            rf'if\s*\(\s*{var_name}\s*==\s*0\s*\)',
+            rf'if\s*\(\s*{var_name}\s*!=\s*0\s*\)',
+            rf'if\s*\(\s*!?\s*{var_name}\s*\)',
+            rf'if\s*\(\s*{var_name}\s*<\s*\d+\s*\)',
+            rf'if\s*\(\s*{var_name}\s*<=\s*0\s*\)',
+            rf'if\s*\(\s*{var_name}\s*>\s*0\s*\)',
+            rf'if\s*\(\s*{var_name}\s*>=\s*\d+\s*\)',
+        ]
+        for pattern in patterns:
+            if re.search(pattern, self.body):
+                return True
+        return False
+
+    def has_lock_unlock(self) -> tuple[bool, bool]:
+        """检查函数体内是否有锁操作。"""
+        has_lock = bool(re.search(r'LOCK\(\)|osMutexAcquire', self.body))
+        has_unlock = bool(re.search(r'UNLOCK\(\)|osMutexRelease', self.body))
+        return has_lock, has_unlock
+
+    def log_in_lock(self) -> bool:
+        """检查是否有 LOG 调用在锁内。"""
+        # 找 LOCK...UNLOCK 块
+        lock_sections = re.finditer(r'LOCK\(\)(.*?)UNLOCK\(\)', self.body, re.DOTALL)
+        for section in lock_sections:
+            if 'LOG_' in section.group(1):
+                return True
+        return False
+
+    def divides_by(self, var_name: str) -> bool:
+        """检查函数体内是否有除以指定变量的操作。"""
+        return bool(re.search(rf'\b\w+\s*/\s*{var_name}\b', self.body))
+
+
+class CFile:
+    """C 文件的语义表示。"""
+
+    def __init__(self, filename: str, content: str):
+        self.filename = filename
+        self.content = content
+        self.functions: list[CFunction] = []
+        self.global_vars: list[dict] = []
+        self._parse()
+
+    def _parse(self):
+        """解析文件，提取函数和全局变量。"""
+        # 排除的关键字（不是函数定义）
+        keywords = {'if', 'else', 'for', 'while', 'switch', 'do', 'return', 'sizeof',
+                     'struct', 'enum', 'typedef', 'union', 'case', 'default'}
+
+        # 解析函数定义
+        # 匹配: [static] [return_type] function_name(params) {
+        func_pattern = re.compile(
+            r'^(static\s+)?([\w\s\*]+?)\s+(\w+)\s*\(([^)]*)\)\s*\{',
+            re.MULTILINE
+        )
+
+        for match in func_pattern.finditer(self.content):
+            is_static = bool(match.group(1))
+            return_type = match.group(2).strip()
+            func_name = match.group(3)
+            params = match.group(4)
+
+            # 跳过关键字
+            if func_name in keywords or return_type in keywords:
+                continue
+
+            # 跳过太短的函数名（可能是宏）
+            if len(func_name) < 2:
+                continue
+
+            # 跳过看起来不像函数定义的（return_type 包含奇怪字符）
+            if re.search(r'[;{}]', return_type):
+                continue
+
+            func_start = match.end()
+
+            # 找函数体结束（匹配大括号）
+            brace_depth = 1
+            pos = func_start
+            while pos < len(self.content) and brace_depth > 0:
+                if self.content[pos] == '{':
+                    brace_depth += 1
+                elif self.content[pos] == '}':
+                    brace_depth -= 1
+                pos += 1
+
+            func_body = self.content[func_start:pos-1]
+            line_num = self.content[:match.start()].count('\n') + 1
+
+            self.functions.append(CFunction(
+                name=func_name,
+                return_type=return_type,
+                params=params,
+                body=func_body,
+                file=self.filename,
+                line=line_num
+            ))
+
+        # 解析全局变量（在函数外部）
+        global_var_pattern = re.compile(
+            r'^(uint\w+|int\w+|bool|float|char|volatile\s+uint\w+|volatile\s+bool)\s+'
+            r'(\w+)\s*(?:=\s*[^;]+|\[[\w\s*]+\])?\s*;',
+            re.MULTILINE
+        )
+
+        for match in global_var_pattern.finditer(self.content):
+            full_line = match.group(0).strip()
+            var_name = match.group(2)
+            line_num = self.content[:match.start()].count('\n') + 1
+
+            # 检查是否在函数体内
+            in_function = False
+            for func in self.functions:
+                func_start = self.content.find(func.body)
+                if func_start <= match.start() <= func_start + len(func.body):
+                    in_function = True
+                    break
+
+            if not in_function:
+                self.global_vars.append({
+                    "name": var_name,
+                    "type": match.group(1),
+                    "line": line_num,
+                    "is_static": full_line.startswith("static"),
+                    "is_volatile": "volatile" in match.group(1),
+                })
+
+    def get_function(self, name: str) -> CFunction | None:
+        """获取指定名称的函数。"""
+        for func in self.functions:
+            if func.name == name:
+                return func
+        return None
+
+    def get_functions_matching(self, pattern: str) -> list[CFunction]:
+        """获取名称匹配模式的函数列表。"""
+        return [f for f in self.functions if re.search(pattern, f.name)]
+
+
+def parse_c_files(c_files: list[tuple[str, str]]) -> list[CFile]:
+    """解析所有 C 文件。"""
+    return [CFile(name, content) for name, content in c_files]
+
+
 def find_src_dir(project_dir: str) -> Path | None:
     """查找 Core/Src 目录。"""
     candidates = [
@@ -285,22 +477,26 @@ def check_init_chain(src_dir: Path, inc_dir: Path) -> CheckSuite:
 # ============================================================
 
 def check_config_system(src_dir: Path) -> CheckSuite:
-    """检查配置系统完整性。"""
+    """检查配置系统完整性（使用语义分析）。"""
     suite = CheckSuite()
     c_files = read_c_files(src_dir)
+    parsed = parse_c_files(c_files)
+
+    # 调试：打印解析到的函数数量
+    total_funcs = sum(len(f.functions) for f in parsed)
+    # print(f"DEBUG: 解析到 {len(parsed)} 个文件，{total_funcs} 个函数")
 
     # 检查 1: Config_Get* 在非 config.c 中被调用
     get_calls = []
     set_calls = []
-    for fname, content in c_files:
-        if fname == "config.c":
+    for cfile in parsed:
+        if cfile.filename == "config.c":
             continue
-        for match in re.finditer(r'Config_Get\w*\s*\(', content):
-            line_num = content[:match.start()].count('\n') + 1
-            get_calls.append(f"{fname}:{line_num}")
-        for match in re.finditer(r'Config_Set\w*\s*\(', content):
-            line_num = content[:match.start()].count('\n') + 1
-            set_calls.append(f"{fname}:{line_num}")
+        for func in cfile.functions:
+            if func.calls("Config_Get"):
+                get_calls.append(f"{cfile.filename}:{func.line}")
+            if func.calls("Config_Set"):
+                set_calls.append(f"{cfile.filename}:{func.line}")
 
     suite.add(CheckResult(
         "Config_Get*() 被调用（读取配置）",
@@ -315,40 +511,48 @@ def check_config_system(src_dir: Path) -> CheckSuite:
     ))
 
     # 检查 2: Set* 函数是否调用 Config_Set*() 同步
-    # 只检查修改持久化配置的函数，排除运行时开关（如亮度、流输出、显示模式等）
     skip_functions = {
-        'Display_SetBrightness',    # 亮度不在 AppConfig 中
-        'Display_SetStreamEnabled', # 运行时开关
-        'Oscilloscope_SetStreamEnabled',  # 运行时开关，不持久化
-        'Display_UpdateSelection',  # UI 状态，不持久化
-        'Display_DrawCursor',       # UI 状态
+        'Display_SetBrightness', 'Display_SetStreamEnabled',
+        'Oscilloscope_SetStreamEnabled', 'Display_UpdateSelection',
+        'Display_DrawCursor',
     }
-    for fname, content in c_files:
-        if fname == "config.c":
+    for cfile in parsed:
+        if cfile.filename == "config.c":
             continue
-        for match in re.finditer(r'(SignalGen|Oscilloscope|Display)_Set\w+\s*\([^)]*\)\s*\{', content):
-            func_start = match.start()
-            func_name = match.group(0).split('(')[0].strip()
-            # 跳过不需要同步 Config 的函数
-            if func_name in skip_functions:
+        setter_funcs = cfile.get_functions_matching(r'(SignalGen|Oscilloscope|Display)_Set\w+')
+        for func in setter_funcs:
+            if func.name in skip_functions:
                 continue
-            next_func = content.find('\n}\n', func_start)
-            if next_func < 0:
-                next_func = len(content)
-            func_body = content[func_start:next_func]
-            if 'Config_Set' in func_body:
-                suite.add(CheckResult(
-                    f"{func_name}() 同步到 Config",
-                    True,
-                    file=fname
-                ))
-            else:
-                suite.add(CheckResult(
-                    f"{func_name}() 同步到 Config",
-                    False,
-                    "函数内没有 Config_Set*() 调用",
-                    fname
-                ))
+            has_config_set = func.calls("Config_Set")
+            suite.add(CheckResult(
+                f"{func.name}() 同步到 Config",
+                has_config_set,
+                "" if has_config_set else "函数内没有 Config_Set*() 调用",
+                cfile.filename
+            ))
+
+    # 检查 3: Init 函数是否在所有分支中都读取配置（语义检查）
+    for cfile in parsed:
+        init_funcs = cfile.get_functions_matching(r'\w+_Init\b')
+        for func in init_funcs:
+            if func.name == "Config_Init":
+                continue
+            if func.calls("Config_Get"):
+                # 检查是否在所有分支中都调用
+                if not func.calls_in_all_branches("Config_Get"):
+                    suite.add(CheckResult(
+                        f"{func.name}() 在所有分支中读取 Config",
+                        False,
+                        "某些代码路径可能跳过 Config 读取",
+                        f"{cfile.filename}:{func.line}",
+                        severity="warning"
+                    ))
+                else:
+                    suite.add(CheckResult(
+                        f"{func.name}() 在所有分支中读取 Config",
+                        True,
+                        file=f"{cfile.filename}:{func.line}"
+                    ))
 
     return suite
 
@@ -527,6 +731,7 @@ def check_concurrency(src_dir: Path) -> CheckSuite:
     """检查并发安全。"""
     suite = CheckSuite()
     c_files = read_c_files(src_dir)
+    parsed = parse_c_files(c_files)
 
     # 检查 1: Config_Set* 在锁内调用
     for fname, content in c_files:
@@ -553,22 +758,27 @@ def check_concurrency(src_dir: Path) -> CheckSuite:
                     f"{fname}:{line_num}"
                 ))
 
-    # 检查 2: LOG_INFO 在锁外调用（锁内日志降级为 warning，因为短锁可接受）
-    for fname, content in c_files:
-        lock_sections = re.finditer(r'LOCK\(\)(.*?)UNLOCK\(\)', content, re.DOTALL)
-        for section in lock_sections:
-            if 'LOG_' in section.group(1):
-                line_num = content[:section.start()].count('\n') + 1
-                # 检查锁内是否有循环（循环内日志才是真正的风险）
-                has_loop = bool(re.search(r'for\s*\(|while\s*\(', section.group(1)))
-                suite.add(CheckResult(
-                    "LOG_INFO 在锁外调用",
-                    False,
-                    "LOG_INFO 在锁内调用（含 HAL_UART_Transmit 阻塞）",
-                    f"{fname}:{line_num}",
-                    severity="error" if has_loop else "warning"
-                ))
-                break
+    # 检查 2: LOG_INFO 在锁外调用（语义分析：检查函数级别的锁内日志）
+    for cfile in parsed:
+        for func in cfile.functions:
+            has_lock, has_unlock = func.has_lock_unlock()
+            if has_lock and has_unlock:
+                if func.log_in_lock():
+                    # 检查锁内是否有循环（循环内日志才是真正的风险）
+                    lock_sections = re.finditer(r'LOCK\(\)(.*?)UNLOCK\(\)', func.body, re.DOTALL)
+                    for section in lock_sections:
+                        if 'LOG_' in section.group(1):
+                            has_loop = bool(re.search(r'for\s*\(|while\s*\(', section.group(1)))
+                            line_offset = func.body[:section.start()].count('\n')
+                            line_num = func.line + line_offset
+                            suite.add(CheckResult(
+                                "LOG_INFO 在锁内调用",
+                                False,
+                                f"函数 {func.name} 中 LOG_INFO 在锁内（含 HAL_UART_Transmit 阻塞）",
+                                f"{cfile.filename}:{line_num}",
+                                severity="error" if has_loop else "warning"
+                            ))
+                            break
 
     # 检查 3: ISR extern 声明与定义的 volatile 匹配
     # 找 extern 声明
@@ -608,6 +818,7 @@ def check_display(src_dir: Path) -> CheckSuite:
     """检查显示和算法。"""
     suite = CheckSuite()
     c_files = read_c_files(src_dir)
+    parsed = parse_c_files(c_files)
 
     # 检查 0: 头文件 include 守卫
     inc_dir = src_dir.parent / "Inc" if src_dir.name == "Src" else src_dir.parent / "inc"
@@ -661,26 +872,25 @@ def check_display(src_dir: Path) -> CheckSuite:
                     file=fname
                 ))
 
-    # 检查 3: 频率/电压计算有除零保护（降级为 warning，因为调用方通常已检查）
-    for fname, content in c_files:
-        for match in re.finditer(r'(\w+)\s*/\s*(\w+)', content):
-            divisor = match.group(2)
-            line_num = content[:match.start()].count('\n') + 1
-            if divisor in ['range', 'size', 'len', 'count', 'frequency', 'sample_rate']:
-                context = content[max(0, match.start()-1000):match.start()]
-                has_zero_check = bool(re.search(
-                    rf'{divisor}\s*[<>!=]+\s*0|{divisor}\s*==\s*0|if\s*\(!?\s*{divisor}\s*\)|'
-                    rf'{divisor}\s*<\s*\d+|{divisor}\s*<=\s*0|if\s*\({divisor}\s*\)',
-                    context
-                ))
-                if not has_zero_check:
-                    suite.add(CheckResult(
-                        f"除法有除零保护 ({divisor})",
-                        False,
-                        f"除数 {divisor} 可能为零（调用方可能已检查）",
-                        f"{fname}:{line_num}",
-                        severity="warning"
-                    ))
+    # 检查 3: 频率/电压计算有除零保护（语义分析：检查函数体内是否有零值检查）
+    dangerous_divisors = ['range', 'size', 'len', 'count', 'frequency', 'sample_rate']
+    for cfile in parsed:
+        for func in cfile.functions:
+            for divisor in dangerous_divisors:
+                if func.divides_by(divisor):
+                    if not func.has_zero_check(divisor):
+                        # 找到除法操作的行号
+                        div_match = re.search(rf'\b\w+\s*/\s*{divisor}\b', func.body)
+                        if div_match:
+                            line_offset = func.body[:div_match.start()].count('\n')
+                            line_num = func.line + line_offset
+                            suite.add(CheckResult(
+                                f"除法有除零保护 ({divisor})",
+                                False,
+                                f"函数 {func.name} 中除以 {divisor}，但没有零值检查",
+                                f"{cfile.filename}:{line_num}",
+                                severity="warning"
+                            ))
 
     return suite
 
