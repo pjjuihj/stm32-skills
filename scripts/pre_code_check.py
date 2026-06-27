@@ -13,13 +13,18 @@
     python pre_code_check.py --auto . --check concurrency # 只检查并发安全
     python pre_code_check.py --auto . --check display    # 只检查显示算法
     python pre_code_check.py --auto . --check all        # 检查全部（默认）
+    python pre_code_check.py --auto . --fix              # 自动修复可修复的问题
+    python pre_code_check.py --auto . --history          # 搜索相关历史错误
 """
 
 from __future__ import annotations
 
 import argparse
 import io
+import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -626,6 +631,167 @@ def check_display(src_dir: Path) -> CheckSuite:
 
 
 # ============================================================
+# 项目配置文件支持
+# ============================================================
+
+CONFIG_FILE = ".pre_code_check.yml"
+
+
+def load_project_config(project_dir: str) -> dict:
+    """加载项目配置文件。"""
+    config_path = Path(project_dir) / CONFIG_FILE
+    if not config_path.exists():
+        return {}
+    try:
+        # 简单的 YAML 解析（避免依赖 pyyaml）
+        config = {}
+        with open(config_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    key = key.strip()
+                    value = value.strip()
+                    if value.startswith("[") and value.endswith("]"):
+                        # 列表
+                        config[key] = [v.strip().strip('"\'') for v in value[1:-1].split(",")]
+                    else:
+                        config[key] = value.strip('"\'')
+        return config
+    except Exception:
+        return {}
+
+
+# ============================================================
+# error_tracker 集成
+# ============================================================
+
+def search_error_history(project_dir: str, keywords: list[str]) -> list[dict]:
+    """搜索错误历史。"""
+    results = []
+    tracker_path = Path(project_dir).parent / "stm32-keil-workflow" / "scripts" / "error_tracker.py"
+    if not tracker_path.exists():
+        # 尝试在技能目录中查找
+        skill_dir = Path(os.environ.get("CLAUDE_SKILLS_DIR", "D:/ClaudeGlobalConfig/skills"))
+        tracker_path = skill_dir / "stm32-keil-workflow" / "scripts" / "error_tracker.py"
+
+    if not tracker_path.exists():
+        return results
+
+    for keyword in keywords[:3]:  # 最多搜索 3 个关键词
+        try:
+            output = subprocess.check_output(
+                [sys.executable, str(tracker_path), "--search", keyword, "--text", "--format", "json"],
+                stderr=subprocess.DEVNULL,
+                timeout=5
+            ).decode("utf-8", errors="ignore")
+            if output.strip():
+                try:
+                    data = json.loads(output)
+                    if isinstance(data, list):
+                        results.extend(data[:2])  # 每个关键词最多 2 条
+                except json.JSONDecodeError:
+                    pass
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+            pass
+
+    return results
+
+
+def extract_keywords_from_failures(suites: list[tuple[str, CheckSuite]]) -> list[str]:
+    """从失败的检查中提取关键词。"""
+    keywords = []
+    for _, suite in suites:
+        for r in suite.results:
+            if not r.passed:
+                # 提取关键词
+                if "Config" in r.name:
+                    keywords.append("config")
+                if "时钟" in r.name or "clock" in r.name.lower():
+                    keywords.append("clock")
+                if "static" in r.name:
+                    keywords.append("static")
+                if "volatile" in r.name:
+                    keywords.append("volatile")
+                if "除零" in r.name:
+                    keywords.append("division")
+                if "LOG_INFO" in r.name:
+                    keywords.append("mutex")
+                if r.detail:
+                    # 从 detail 中提取
+                    words = re.findall(r'[A-Za-z_]\w*', r.detail)
+                    keywords.extend(words[:2])
+    return list(set(keywords))[:5]
+
+
+# ============================================================
+# 自动修复
+# ============================================================
+
+def auto_fix(project_dir: str, suites: list[tuple[str, CheckSuite]]) -> int:
+    """自动修复可修复的问题。返回修复数量。"""
+    src_dir = find_src_dir(project_dir)
+    if not src_dir:
+        return 0
+
+    fixed = 0
+
+    for _, suite in suites:
+        for r in suite.results:
+            if r.passed or r.severity == "info":
+                continue
+
+            # 修复 1: osc_config_buffer_size 重复变量
+            if "重复变量" in r.name and "buffer_size" in r.name:
+                fname = "oscilloscope.c"
+                fpath = src_dir / fname
+                if fpath.exists():
+                    content = fpath.read_text(encoding="utf-8")
+                    # 删除重复变量定义
+                    new_content = re.sub(
+                        r'\n/\*.*?副本.*?\*/\nuint32_t osc_config_buffer_size.*?;\n',
+                        '\n',
+                        content,
+                        flags=re.DOTALL
+                    )
+                    if new_content != content:
+                        fpath.write_text(new_content, encoding="utf-8")
+                        print(f"  {GREEN}✅ 已修复: 删除 {fname} 中的重复变量 osc_config_buffer_size{RESET}")
+                        fixed += 1
+
+            # 修复 2: 全局变量加 static（简单情况）
+            if "全局变量用 static" in r.name and r.file:
+                parts = r.file.split(":")
+                if len(parts) == 2:
+                    fname, line_str = parts
+                    fpath = src_dir / fname
+                    if fpath.exists():
+                        content = fpath.read_text(encoding="utf-8")
+                        lines = content.split("\n")
+                        try:
+                            line_idx = int(line_str) - 1
+                            if 0 <= line_idx < len(lines):
+                                line = lines[line_idx]
+                                # 简单的加 static（不处理 volatile 等复杂情况）
+                                if not line.strip().startswith("static") and not line.strip().startswith("volatile"):
+                                    # 在类型前加 static
+                                    new_line = line.replace("uint32_t", "static uint32_t", 1)
+                                    new_line = new_line.replace("uint16_t", "static uint16_t", 1)
+                                    new_line = new_line.replace("bool ", "static bool ", 1)
+                                    if new_line != line:
+                                        lines[line_idx] = new_line
+                                        fpath.write_text("\n".join(lines), encoding="utf-8")
+                                        print(f"  {GREEN}✅ 已修复: {fname}:{line_str} 加 static{RESET}")
+                                        fixed += 1
+                        except (ValueError, IndexError):
+                            pass
+
+    return fixed
+
+
+# ============================================================
 # 主程序
 # ============================================================
 
@@ -642,11 +808,17 @@ def main():
   concurrency 检查并发安全
   display    检查显示和算法
   all        检查全部（默认）
+
+选项:
+  --fix      自动修复可修复的问题
+  --history  搜索相关历史错误
         """
     )
     parser.add_argument("--auto", metavar="DIR", help="项目根目录")
     parser.add_argument("--check", default="all", help="检查项（init/config/clock/encaps/concurrency/display/all）")
     parser.add_argument("--project", metavar="DIR", help="项目根目录（--auto 的别名）")
+    parser.add_argument("--fix", action="store_true", help="自动修复可修复的问题")
+    parser.add_argument("--history", action="store_true", help="搜索相关历史错误")
     args = parser.parse_args()
 
     project_dir = args.auto or args.project or "."
@@ -660,6 +832,9 @@ def main():
     if not src_dir:
         print(f"{RED}错误: 未找到 Core/Src 目录{RESET}", file=sys.stderr)
         sys.exit(1)
+
+    # 加载项目配置
+    config = load_project_config(project_dir)
 
     print(f"\n{BOLD}写代码前检查流{RESET}")
     print(f"项目: {Path(project_dir).resolve()}")
@@ -698,6 +873,35 @@ def main():
         total_warnings += suite.warnings()
         total_infos += suite.infos()
 
+    # 搜索历史错误
+    if args.history and total_errors > 0:
+        keywords = extract_keywords_from_failures(all_suites)
+        if keywords:
+            print(f"\n{BOLD}{CYAN}{'='*60}{RESET}")
+            print(f"{BOLD}{CYAN}  搜索相关历史错误{RESET}")
+            print(f"{BOLD}{CYAN}{'='*60}{RESET}")
+            history = search_error_history(project_dir, keywords)
+            if history:
+                for h in history[:5]:
+                    error = h.get("error", "未知")
+                    fix = h.get("fix", "无")
+                    print(f"  {YELLOW}📝{RESET} {error}")
+                    print(f"     修复: {fix}")
+            else:
+                print(f"  {CYAN}ℹ️  未找到相关历史错误{RESET}")
+
+    # 自动修复
+    if args.fix and total_errors > 0:
+        print(f"\n{BOLD}{CYAN}{'='*60}{RESET}")
+        print(f"{BOLD}{CYAN}  自动修复{RESET}")
+        print(f"{BOLD}{CYAN}{'='*60}{RESET}")
+        fixed = auto_fix(project_dir, all_suites)
+        if fixed > 0:
+            print(f"\n  {GREEN}{BOLD}✅ 已修复 {fixed} 项问题{RESET}")
+            print(f"  {YELLOW}  请重新运行检查确认修复结果{RESET}")
+        else:
+            print(f"  {CYAN}ℹ️  没有可自动修复的问题{RESET}")
+
     # 总结
     print(f"\n{BOLD}{'='*60}{RESET}")
     total = total_passed + total_errors + total_warnings + total_infos
@@ -707,6 +911,10 @@ def main():
             print(f"{YELLOW}  ⚠️  {total_warnings} 项警告（低风险，建议修复）{RESET}")
     else:
         print(f"{RED}{BOLD}  ❌ {total_errors} 项错误需要修复，{total_warnings} 项警告{RESET}")
+        if not args.fix:
+            print(f"{YELLOW}  💡 提示: 使用 --fix 自动修复可修复的问题{RESET}")
+        if not args.history:
+            print(f"{YELLOW}  💡 提示: 使用 --history 搜索相关历史错误{RESET}")
     print(f"{BOLD}{'='*60}{RESET}\n")
 
     sys.exit(1 if total_errors > 0 else 0)
