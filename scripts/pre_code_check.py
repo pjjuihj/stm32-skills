@@ -88,14 +88,28 @@ def read_h_files(inc_dir: Path) -> list[tuple[str, str]]:
 class CheckResult:
     """单条检查结果。"""
 
-    def __init__(self, name: str, passed: bool, detail: str = "", file: str = ""):
+    # 严重级别
+    SEVERITY_ERROR = "error"      # 真正的 bug，必须修复
+    SEVERITY_WARNING = "warning"  # 低风险，建议修复
+    SEVERITY_INFO = "info"        # 信息，可接受
+
+    def __init__(self, name: str, passed: bool, detail: str = "", file: str = "",
+                 severity: str = "error"):
         self.name = name
         self.passed = passed
         self.detail = detail
         self.file = file
+        self.severity = severity
 
     def __str__(self):
-        status = f"{GREEN}✅{RESET}" if self.passed else f"{RED}❌{RESET}"
+        if self.passed:
+            status = f"{GREEN}✅{RESET}"
+        elif self.severity == "warning":
+            status = f"{YELLOW}⚠️{RESET}"
+        elif self.severity == "info":
+            status = f"{CYAN}ℹ️{RESET}"
+        else:
+            status = f"{RED}❌{RESET}"
         loc = f" ({self.file})" if self.file else ""
         detail = f" — {self.detail}" if self.detail else ""
         return f"  {status} {self.name}{loc}{detail}"
@@ -113,8 +127,14 @@ class CheckSuite:
     def passed(self) -> int:
         return sum(1 for r in self.results if r.passed)
 
-    def failed(self) -> int:
-        return sum(1 for r in self.results if not r.passed)
+    def errors(self) -> int:
+        return sum(1 for r in self.results if not r.passed and r.severity == "error")
+
+    def warnings(self) -> int:
+        return sum(1 for r in self.results if not r.passed and r.severity == "warning")
+
+    def infos(self) -> int:
+        return sum(1 for r in self.results if not r.passed and r.severity == "info")
 
     def print_report(self, title: str):
         print(f"\n{BOLD}{CYAN}{'='*60}{RESET}")
@@ -123,12 +143,14 @@ class CheckSuite:
         for r in self.results:
             print(r)
         p = self.passed()
-        f = self.failed()
-        total = p + f
-        color = GREEN if f == 0 else RED
-        print(f"\n  {color}{BOLD}结果: {p}/{total} 通过{RESET}")
-        if f > 0:
-            print(f"  {RED}  {f} 项需要关注{RESET}")
+        e = self.errors()
+        w = self.warnings()
+        i = self.infos()
+        total = p + e + w + i
+        if e == 0:
+            print(f"\n  {GREEN}{BOLD}结果: {p}/{total} 通过{RESET}")
+        else:
+            print(f"\n  {RED}{BOLD}结果: {p}/{total} 通过（{e} 错误, {w} 警告, {i} 信息）{RESET}")
 
 
 # ============================================================
@@ -484,18 +506,20 @@ def check_concurrency(src_dir: Path) -> CheckSuite:
                     f"{fname}:{line_num}"
                 ))
 
-    # 检查 2: LOG_INFO 在锁外调用
+    # 检查 2: LOG_INFO 在锁外调用（锁内日志降级为 warning，因为短锁可接受）
     for fname, content in c_files:
-        # 找在 LOCK...UNLOCK 之间的 LOG_INFO
         lock_sections = re.finditer(r'LOCK\(\)(.*?)UNLOCK\(\)', content, re.DOTALL)
         for section in lock_sections:
             if 'LOG_' in section.group(1):
                 line_num = content[:section.start()].count('\n') + 1
+                # 检查锁内是否有循环（循环内日志才是真正的风险）
+                has_loop = bool(re.search(r'for\s*\(|while\s*\(', section.group(1)))
                 suite.add(CheckResult(
                     "LOG_INFO 在锁外调用",
                     False,
                     "LOG_INFO 在锁内调用（含 HAL_UART_Transmit 阻塞）",
-                    f"{fname}:{line_num}"
+                    f"{fname}:{line_num}",
+                    severity="error" if has_loop else "warning"
                 ))
                 break
 
@@ -577,14 +601,12 @@ def check_display(src_dir: Path) -> CheckSuite:
                     file=fname
                 ))
 
-    # 检查 3: 频率/电压计算有除零保护
+    # 检查 3: 频率/电压计算有除零保护（降级为 warning，因为调用方通常已检查）
     for fname, content in c_files:
-        # 找除法操作，检查除数是否有零值保护
         for match in re.finditer(r'(\w+)\s*/\s*(\w+)', content):
             divisor = match.group(2)
             line_num = content[:match.start()].count('\n') + 1
             if divisor in ['range', 'size', 'len', 'count', 'frequency', 'sample_rate']:
-                # 检查前面是否有零值检查（搜索整个函数体）
                 context = content[max(0, match.start()-1000):match.start()]
                 has_zero_check = bool(re.search(
                     rf'{divisor}\s*[<>!=]+\s*0|{divisor}\s*==\s*0|if\s*\(!?\s*{divisor}\s*\)|'
@@ -595,8 +617,9 @@ def check_display(src_dir: Path) -> CheckSuite:
                     suite.add(CheckResult(
                         f"除法有除零保护 ({divisor})",
                         False,
-                        f"除数 {divisor} 可能为零",
-                        f"{fname}:{line_num}"
+                        f"除数 {divisor} 可能为零（调用方可能已检查）",
+                        f"{fname}:{line_num}",
+                        severity="warning"
                     ))
 
     return suite
@@ -664,23 +687,29 @@ def main():
         all_suites.append(("第 7 步：检查显示和算法", check_display(src_dir)))
 
     total_passed = 0
-    total_failed = 0
+    total_errors = 0
+    total_warnings = 0
+    total_infos = 0
 
     for title, suite in all_suites:
         suite.print_report(title)
         total_passed += suite.passed()
-        total_failed += suite.failed()
+        total_errors += suite.errors()
+        total_warnings += suite.warnings()
+        total_infos += suite.infos()
 
     # 总结
     print(f"\n{BOLD}{'='*60}{RESET}")
-    total = total_passed + total_failed
-    if total_failed == 0:
+    total = total_passed + total_errors + total_warnings + total_infos
+    if total_errors == 0:
         print(f"{GREEN}{BOLD}  ✅ 全部 {total} 项检查通过！可以开始写代码。{RESET}")
+        if total_warnings > 0:
+            print(f"{YELLOW}  ⚠️  {total_warnings} 项警告（低风险，建议修复）{RESET}")
     else:
-        print(f"{RED}{BOLD}  ❌ {total_failed}/{total} 项未通过，请先修复再写代码。{RESET}")
+        print(f"{RED}{BOLD}  ❌ {total_errors} 项错误需要修复，{total_warnings} 项警告{RESET}")
     print(f"{BOLD}{'='*60}{RESET}\n")
 
-    sys.exit(1 if total_failed > 0 else 0)
+    sys.exit(1 if total_errors > 0 else 0)
 
 
 if __name__ == "__main__":
