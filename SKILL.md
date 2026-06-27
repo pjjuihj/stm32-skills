@@ -10,12 +10,17 @@ description: >
   "add task", "configure peripheral", ADC/DAC, I2C/SPI/UART, PWM, encoder, motor control.
   Also handles: STM32 project initialization, health checks, code generation, memory analysis,
   pin conflict detection, clock validation, peripheral validation, NVIC configuration.
+  Design review triggers: config system verification, Config_Get/Config_Set not called,
+  Init function not reading config, hardcoded clock frequency, timer prescaler calculation,
+  mutex usage pattern, race condition in shared data, waveform display aliasing,
+  min/max envelope downsampling, division by zero in timer config.
   Debug triggers: HAL behavior unexpected, DMA not working, callback not firing, firmware hangs,
   flash but no effect, Error_Handler stuck, register debugging, HAL source code lookup,
   "搜一下HAL"、"DMA不循环"、"回调没触发"、"烧了没反应"、"固件卡死"、"寄存器状态",
   "编译失败"、"烧录没效果"、"跑的是旧代码"、"I2C不通"、"SPI没数据"、"ADC值不对",
   "串口没输出"、"HardFault"、"栈溢出"、"中断不响应"、"定时器不准",
-  "版本回退"、"恢复上一个版本"、"硬件不工作"、"电源问题"、"示波器".
+  "版本回退"、"恢复上一个版本"、"硬件不工作"、"电源问题"、"示波器",
+  "配置没生效"、"Config没读到"、"定时器频率不对"、"采样率不对"、"波形是尖刺".
 ---
 
 # STM32 Keil Workflow
@@ -541,7 +546,7 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 
 | 功能 | 说明 |
 |------|------|
-| **自动分类** | 编译、链接、运行时、配置、CubeMX/HAL、串口、I2C、SPI、ADC |
+| **自动分类** | 编译、链接、运行时、配置、设计缺陷、CubeMX/HAL、串口、I2C、SPI、ADC |
 | **相似匹配** | 自动查找相似历史错误 |
 | **CubeMX 建议** | 配置错误时建议在 CubeMX 中修改 |
 | **错误趋势** | 按日期和分类分析错误趋势 |
@@ -601,11 +606,15 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 | 禁止 | 原因 |
 |------|------|
 | 修改时钟配置 | PLL/HSE/SYSCLK 代码中动了就死机 |
+| 硬编码时钟频率 | APBx 分频器变更时静默失效，必须用 `HAL_RCC_GetPCLKxFreq()` |
 | 修改 CubeMX 生成的 MX_* 函数 | CubeMX 重新生成会覆盖 |
 | 混用 HAL 和寄存器操作同一外设 | 两套状态机互相覆盖 |
 | 空 Error_Handler | 板子卡死无法定位 |
 | 全片擦除（-e） | 除非用户明确要求或死机恢复 |
 | 不读错误信息就猜 | 编译器告诉你问题在哪，就读 |
+| Init 函数不读 Config | 配置系统形同虚设，Flash 保存的配置永远不会生效 |
+| 锁外写共享数据 | 竞态条件导致 Config 存入脏数据 |
+| 波形显示取单点降采样 | 多周期时混叠产生尖刺，必须用 min/max 包络 |
 
 ### AI 开发新功能的流程
 
@@ -627,10 +636,13 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 | # | 守则 | 后果 |
 |---|------|------|
 | 1 | 时钟配置不能碰 | PLL/HSE/SYSCLK 代码中动了就死机，只能在 CubeMX 改 |
-| 2 | Error_Handler 不能空死循环 | 必须有串口输出，否则"板子卡死"无法定位 |
-| 3 | CubeMX 配置是基准 | 代码适配配置，不是反过来。配置错误在 CubeMX 中改，不在代码中绕过 |
-| 4 | CubeMX 重新生成会覆盖 | 手动配置必须写在 USER CODE 区，生成后对照验证 |
-| 5 | HAL 和寄存器不能混用 | 混用 = 两套状态机互相覆盖，回调失效 |
+| 2 | 时钟频率不能硬编码 | APBx 分频器变更时静默失效，必须用 `HAL_RCC_GetPCLKxFreq()` |
+| 3 | Error_Handler 不能空死循环 | 必须有串口输出，否则"板子卡死"无法定位 |
+| 4 | CubeMX 配置是基准 | 代码适配配置，不是反过来。配置错误在 CubeMX 中改，不在代码中绕过 |
+| 5 | CubeMX 重新生成会覆盖 | 手动配置必须写在 USER CODE 区，生成后对照验证 |
+| 6 | HAL 和寄存器不能混用 | 混用 = 两套状态机互相覆盖，回调失效 |
+| 7 | Config API 必须两头接通 | Init 读 Config + Set* 写回 Config，否则配置系统形同虚设 |
+| 8 | 互斥锁内外要分清 | Config_Set* 等 memcpy 操作在锁内拷贝、锁外写入，避免竞态 |
 
 ### 最佳实践（不做 = 浪费时间）
 
@@ -679,6 +691,20 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 
 > 每一步的详细操作 → 见"调试方法论"对应章节
 
+### 分层验证策略
+
+当问题涉及多个模块时，不要从顶层猜——逐层验证，每层确认后再往上走：
+
+```
+1. 硬件层：寄存器值是否正确？（TIM->CNT 在变吗？DMA->CR EN 位？）
+2. 驱动层：DMA 是否在搬数据？回调是否触发？
+3. 数据层：缓冲区数据是否合理？（范围、频率、噪声）
+4. 算法层：处理逻辑是否正确？（测量值、变换结果）
+5. 显示层：渲染结果是否符合预期？（波形、文字、菜单）
+```
+
+**案例**：波形显示为尖刺 → 不是显示模块的 bug，是数据层的问题（多周期降采样混叠）。从数据层排查比从显示层猜快 10 倍。
+
 ---
 
 ## 调试方法论
@@ -692,6 +718,29 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 3. **死锁预防清单**（`deadlock-prevention.md`）→ 检查清单
 
 > 文件名因项目而异，用 Glob 搜 `**/*spec*`、`**/*log*`、`**/*solution*` 定位。
+
+#### 配置系统完整性检查
+
+配置系统是最容易出问题的地方——设计了 API 但没有接通。每次修改配置相关代码时检查：
+
+```
+□ 每个 Config_Get*() 是否在 Init 中被调用？
+□ 每个 Set*() 函数是否调用 Config_Set*() 同步回 Config？
+□ Init 函数是否从 Config 读取而不是只用硬编码默认值？
+□ Config_Set*() 是否在互斥锁内完成（或锁内拷贝）？
+□ 定时器预分频是否使用 HAL_RCC_GetPCLKxFreq() 而不是硬编码？
+```
+
+**快速验证**：`grep -rn "Config_Get\|Config_Set" Core/Src/` — 如果只有 config.c 有调用，说明配置系统没接通。
+
+#### 时钟频率硬编码扫描
+
+```bash
+# 搜索硬编码的时钟频率（应该用 HAL_RCC_GetPCLKxFreq() 替代）
+grep -rn "84000000\|168000000\|42000000\|72000000" Core/Src/
+```
+
+如果找到硬编码值，说明定时器频率计算在时钟配置变更时会静默失效。
 
 ### ② STM32 系列差异
 
@@ -849,6 +898,56 @@ HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn); // 7. 中断使能
 ```
 
 顺序错误不报错，但外设不工作。
+
+### ⑧-b 互斥锁使用模式
+
+FreeRTOS 项目中，共享资源必须用互斥锁保护。但锁的使用方式也有讲究：
+
+**正确模式：锁内拷贝，锁外写入**
+```c
+// ✅ Config_Set*() 在锁外调用，但数据在锁内拷贝
+SIGGEN_LOCK();
+siggen_config.frequency = freq;
+SigGen_ApplyConfig();
+SigGenConfig_t cfg_copy = siggen_config;  // 锁内拷贝
+SIGGEN_UNLOCK();
+Config_SetSigGenConfig(&cfg_copy);  // 锁外写入（memcpy 很快）
+```
+
+**错误模式：锁外读取共享数据**
+```c
+// ❌ 另一个任务可能正在修改 siggen_config
+SIGGEN_LOCK();
+siggen_config.frequency = freq;
+SIGGEN_UNLOCK();
+Config_SetSigGenConfig(&siggen_config);  // 竞态！可能读到脏数据
+```
+
+**锁内避免阻塞操作**：`LOG_INFO` 最终调用 `HAL_UART_Transmit`（阻塞），不要在锁内调用。
+
+### ⑧-c 低分辨率波形显示
+
+OLED/小屏幕显示波形时，降采样算法决定显示质量：
+
+**错误：取单点降采样**
+```c
+// ❌ 每像素列取 1 个采样点，多周期时不同相位连成尖刺
+uint16_t y = data[x * step];
+OLED_DrawLine(x, y, x+1, data[(x+1) * step], 1);
+```
+
+**正确：min/max 包络**
+```c
+// ✅ 每像素列找最小值和最大值，画竖线
+uint16_t col_min = data[x * step], col_max = col_min;
+for (uint16_t i = x * step + 1; i < (x+1) * step; i++) {
+    if (data[i] < col_min) col_min = data[i];
+    if (data[i] > col_max) col_max = data[i];
+}
+OLED_DrawLine(x, col_min, x, col_max, 1);
+```
+
+这是数字示波器的标准做法，无论波形有多少周期都能正确显示轮廓。
 
 ### ⑨ Error_Handler 改进
 
