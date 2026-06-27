@@ -636,6 +636,128 @@ python workflow.py --auto . --steps compile,analyze,optimize,report
 
 **为什么这个清单重要**：本项目 8 个初始 bug + 7 个后续问题，全部是这些检查项的遗漏。跳过任何一条 = 赌博。
 
+### 变量封装规则
+
+写代码时必须按以下规则封装变量，违反任何一条都是代码质量问题：
+
+#### 规则 1：结构体组织相关数据
+
+```c
+// ❌ 散落的变量
+static uint32_t frequency;
+static uint32_t amplitude;
+static WaveformType_t waveform;
+
+// ✅ 结构体封装
+typedef struct {
+    uint32_t frequency;
+    uint32_t amplitude;
+    WaveformType_t waveform;
+    uint16_t duty_cycle;
+    uint8_t enabled;
+} SigGenConfig_t;
+
+static SigGenConfig_t siggen_config = {
+    .frequency = SIGGEN_DEFAULT_FREQUENCY,
+    .amplitude = SIGGEN_DEFAULT_AMPLITUDE,
+};
+```
+
+#### 规则 2：static 限制作用域
+
+```c
+// ❌ 全局可见，任何文件都能 extern 访问
+uint16_t adc_buffer[1024];
+
+// ✅ 只在本文件使用
+static uint16_t waveform_buffer[256];
+
+// ✅ 需要跨文件访问时，用非 static + getter
+uint16_t adc_buffer[1024];  // 非 static，但通过 getter 访问
+const uint16_t *Oscilloscope_GetAdcBuffer(void) { return adc_buffer; }
+```
+
+#### 规则 3：getter/setter 封装访问
+
+```c
+// ❌ 直接 extern 变量
+extern volatile uint16_t *process_ptr;
+
+// ✅ 通过函数访问
+bool Osc_GetProcessBuffer(const uint16_t **buf, uint16_t *len);
+
+// ✅ setter 可以带校验和副作用
+ErrorCode_t SignalGen_SetFrequency(uint32_t freq_hz) {
+    if (freq_hz == 0 || freq_hz > 1000000) return ERR_INVALID_PARAM;
+    SIGGEN_LOCK();
+    siggen_config.frequency = freq_hz;
+    SigGen_ApplyConfig();           // 同步更新硬件
+    SigGenConfig_t cfg = siggen_config;
+    SIGGEN_UNLOCK();
+    Config_SetSigGenConfig(&cfg);   // 同步到 Config
+    return ERR_OK;
+}
+```
+
+#### 规则 4：宏/函数替代魔法数字
+
+```c
+// ❌ 硬编码
+uint32_t psc = (84000000 / target) - 1;
+
+// ✅ 宏
+#define APB1_TIMER_CLK  84000000
+
+// ✅ 更好：函数动态获取
+static uint32_t SigGen_GetTimerClock(void) {
+    uint32_t pclk1 = HAL_RCC_GetPCLK1Freq();
+    if ((RCC->CFGR & RCC_CFGR_PPRE1) != RCC_CFGR_PPRE1_DIV1)
+        return pclk1 * 2;
+    return pclk1;
+}
+```
+
+#### 规则 5：消除重复变量
+
+```c
+// ❌ osc_config.buffer_size 的重复副本
+uint32_t osc_config_buffer_size = OSC_DEFAULT_BUFFER_SIZE;
+
+// ✅ 直接用 getter
+uint32_t Oscilloscope_GetAdcBufferSize(void) {
+    return osc_config.buffer_size;
+}
+```
+
+#### 规则 6：volatile + 临界区保护 ISR 共享变量
+
+```c
+// ❌ ISR 共享但无保护
+uint32_t tick_count;
+
+// ✅ volatile + 原子读取
+static volatile uint32_t tick_count = 0;
+uint32_t System_GetTick(void) {
+    __disable_irq();
+    uint32_t t = tick_count;
+    __enable_irq();
+    return t;
+}
+```
+
+#### 封装检查清单
+
+```
+□ 散落的相关变量是否组织成结构体？
+□ 只在本文件用的变量/函数是否加了 static？
+□ 跨文件访问是否通过 getter/setter？
+□ 硬编码数值是否用宏或函数替代？
+□ 是否存在重复变量（如 buffer_size 副本）？
+□ ISR 共享变量是否 volatile + 临界区保护？
+□ setter 是否带校验（范围检查、除零保护）？
+□ setter 是否带副作用（同步硬件、同步 Config）？
+```
+
 ### AI 修改代码前必须做
 
 1. **读项目文档** — Glob 搜 `**/*spec*`、`**/*log*`、`**/*solution*`，看有没有相关记录
