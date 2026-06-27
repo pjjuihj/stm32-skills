@@ -486,6 +486,8 @@ def check_config_system(src_dir: Path) -> CheckSuite:
     c_files = read_c_files(src_dir)
     parsed = parse_c_files(c_files)
 
+    # === 基础检查：API 调用 ===
+
     # 检查 1: Config_Get* 在非 config.c 中被调用
     get_calls = []
     set_calls = []
@@ -538,7 +540,6 @@ def check_config_system(src_dir: Path) -> CheckSuite:
             if func.name == "Config_Init":
                 continue
             if func.calls("Config_Get"):
-                # 检查是否在所有分支中都调用
                 if not func.calls_in_all_branches("Config_Get"):
                     suite.add(CheckResult(
                         f"{func.name}() 在所有分支中读取 Config",
@@ -553,6 +554,147 @@ def check_config_system(src_dir: Path) -> CheckSuite:
                         True,
                         file=f"{cfile.filename}:{func.line}"
                     ))
+
+    # === 高级检查：配置系统设计 ===
+
+    # 找到 config.c 的解析结果
+    config_file = None
+    for cfile in parsed:
+        if cfile.filename == "config.c":
+            config_file = cfile
+            break
+
+    if config_file:
+        # 检查 4: Config_Init 是否调用 Config_LoadDefaults 和 Config_Load
+        config_init = config_file.get_function("Config_Init")
+        if config_init:
+            has_load_defaults = config_init.calls("Config_LoadDefaults")
+            has_load = config_init.calls("Config_Load")
+            suite.add(CheckResult(
+                "Config_Init 调用 Config_LoadDefaults（默认值）",
+                has_load_defaults,
+                "" if has_load_defaults else "Config_Init 没有调用 Config_LoadDefaults",
+                "config.c",
+                severity="error" if not has_load_defaults else "info"
+            ))
+            suite.add(CheckResult(
+                "Config_Init 调用 Config_Load（Flash 加载）",
+                has_load,
+                "" if has_load else "Config_Init 没有调用 Config_Load",
+                "config.c",
+                severity="warning" if not has_load else "info"
+            ))
+
+        # 检查 5: Config_Load 是否验证校验和
+        config_load = config_file.get_function("Config_Load")
+        if config_load:
+            has_checksum_check = config_load.calls("Config_CalculateChecksum") or config_load.calls("checksum")
+            suite.add(CheckResult(
+                "Config_Load 验证校验和",
+                has_checksum_check,
+                "" if has_checksum_check else "Config_Load 没有验证校验和，可能加载损坏的配置",
+                "config.c",
+                severity="warning" if not has_checksum_check else "info"
+            ))
+
+        # 检查 6: Config_Save 是否计算校验和
+        config_save = config_file.get_function("Config_Save")
+        if config_save:
+            has_checksum_calc = config_save.calls("Config_CalculateChecksum") or config_save.calls("checksum")
+            suite.add(CheckResult(
+                "Config_Save 计算校验和",
+                has_checksum_calc,
+                "" if has_checksum_calc else "Config_Save 没有计算校验和，保存的配置可能损坏",
+                "config.c",
+                severity="warning" if not has_checksum_calc else "info"
+            ))
+
+        # 检查 7: Config_LoadDefaults 是否初始化所有字段
+        config_load_defaults = config_file.get_function("Config_LoadDefaults")
+        if config_load_defaults:
+            # 检查是否初始化了 osc 和 siggen 配置
+            has_osc_init = bool(re.search(r'app_config\.osc\.', config_load_defaults.body))
+            has_siggen_init = bool(re.search(r'app_config\.siggen\.', config_load_defaults.body))
+            has_sys_init = bool(re.search(r'app_config\.sys\.', config_load_defaults.body))
+            suite.add(CheckResult(
+                "Config_LoadDefaults 初始化 osc 配置",
+                has_osc_init,
+                "" if has_osc_init else "没有初始化 app_config.osc",
+                "config.c",
+                severity="error" if not has_osc_init else "info"
+            ))
+            suite.add(CheckResult(
+                "Config_LoadDefaults 初始化 siggen 配置",
+                has_siggen_init,
+                "" if has_siggen_init else "没有初始化 app_config.siggen",
+                "config.c",
+                severity="error" if not has_siggen_init else "info"
+            ))
+            suite.add(CheckResult(
+                "Config_LoadDefaults 初始化 sys 配置",
+                has_sys_init,
+                "" if has_sys_init else "没有初始化 app_config.sys",
+                "config.c",
+                severity="warning" if not has_sys_init else "info"
+            ))
+
+        # 检查 8: Config_Save 是否有 Flash 擦除验证
+        if config_save:
+            has_erase = config_save.calls("FLASH_Erase") or config_save.calls("HAL_FLASHEx_Erase")
+            has_verify = config_save.calls("verify") or config_save.calls("memcmp") or config_save.calls("FLASH_Wait")
+            suite.add(CheckResult(
+                "Config_Save 擦除 Flash 扇区",
+                has_erase,
+                "" if has_erase else "Config_Save 没有擦除 Flash 扇区",
+                "config.c",
+                severity="error" if not has_erase else "info"
+            ))
+            suite.add(CheckResult(
+                "Config_Save 验证写入结果",
+                has_verify,
+                "" if has_verify else "Config_Save 没有验证写入结果，建议回读验证",
+                "config.c",
+                severity="warning" if not has_verify else "info"
+            ))
+
+        # 检查 9: Config API 完整性（Get/Set 对应）
+        config_apis = {
+            "OscConfig": ("Config_GetOscConfig", "Config_SetOscConfig"),
+            "SigGenConfig": ("Config_GetSigGenConfig", "Config_SetSigGenConfig"),
+        }
+        for name, (getter, setter) in config_apis.items():
+            has_getter = config_file.get_function(getter) is not None
+            has_setter = config_file.get_function(setter) is not None
+            suite.add(CheckResult(
+                f"Config API {name} 完整（Get + Set）",
+                has_getter and has_setter,
+                f"{'缺少 ' + getter if not has_getter else ''} {'缺少 ' + setter if not has_setter else ''}".strip(),
+                "config.c",
+                severity="error" if not (has_getter and has_setter) else "info"
+            ))
+
+    # 检查 10: 配置结构体定义检查（头文件）
+    inc_dir = src_dir.parent / "Inc" if src_dir.name == "Src" else src_dir.parent / "inc"
+    if inc_dir.exists():
+        h_files = read_h_files(inc_dir)
+        for fname, content in h_files:
+            if "config.h" in fname:
+                has_app_config = bool(re.search(r'typedef\s+struct.*AppConfig_t', content, re.DOTALL))
+                has_config_header = bool(re.search(r'ConfigHeader_t', content))
+                suite.add(CheckResult(
+                    "配置结构体 AppConfig_t 已定义",
+                    has_app_config,
+                    "" if has_app_config else "config.h 中没有定义 AppConfig_t",
+                    fname,
+                    severity="error" if not has_app_config else "info"
+                ))
+                suite.add(CheckResult(
+                    "配置头 ConfigHeader_t 已定义",
+                    has_config_header,
+                    "" if has_config_header else "config.h 中没有定义 ConfigHeader_t（版本/校验和）",
+                    fname,
+                    severity="warning" if not has_config_header else "info"
+                ))
 
     return suite
 
