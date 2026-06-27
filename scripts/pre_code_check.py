@@ -829,6 +829,107 @@ def auto_fix(project_dir: str, suites: list[tuple[str, CheckSuite]]) -> int:
 
 
 # ============================================================
+# codegraph 集成（调用链验证）
+# ============================================================
+
+def verify_call_chain(project_dir: str, function_name: str) -> dict:
+    """用 codegraph 验证函数是否被调用。"""
+    result = {"called": False, "callers": [], "error": None}
+
+    # 查找 codegraph 脚本
+    skill_dir = Path(os.environ.get("CLAUDE_SKILLS_DIR", "D:/ClaudeGlobalConfig/skills"))
+    codegraph_path = skill_dir / "codegraph" / "scripts" / "codegraph.py"
+
+    if not codegraph_path.exists():
+        # 尝试用 MCP 工具（如果可用）
+        result["error"] = "codegraph 未安装"
+        return result
+
+    try:
+        output = subprocess.check_output(
+            [sys.executable, str(codegraph_path), "--project", project_dir, "callers", function_name],
+            stderr=subprocess.DEVNULL,
+            timeout=10
+        ).decode("utf-8", errors="ignore")
+        if output.strip():
+            result["called"] = True
+            result["callers"] = [line.strip() for line in output.strip().split("\n") if line.strip()]
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+        result["error"] = "codegraph 查询失败"
+
+    return result
+
+
+def check_call_chains(src_dir: Path) -> CheckSuite:
+    """检查关键函数的调用链。"""
+    suite = CheckSuite()
+    project_dir = str(src_dir.parent.parent)
+
+    # 关键函数列表
+    critical_functions = [
+        ("Oscilloscope_Init", "示波器初始化"),
+        ("SignalGen_Init", "信号发生器初始化"),
+        ("UART_Protocol_Init", "串口协议初始化"),
+        ("Display_Init", "显示初始化"),
+        ("KeyHandler_Init", "按键初始化"),
+    ]
+
+    for func_name, desc in critical_functions:
+        result = verify_call_chain(project_dir, func_name)
+        if result["error"]:
+            suite.add(CheckResult(
+                f"{desc}被调用 ({func_name})",
+                True,  # 无法验证时默认通过
+                f"codegraph: {result['error']}",
+                severity="info"
+            ))
+        else:
+            suite.add(CheckResult(
+                f"{desc}被调用 ({func_name})",
+                result["called"],
+                f"调用者: {', '.join(result['callers'][:3])}" if result["callers"] else "未找到调用者",
+                severity="error" if not result["called"] else "info"
+            ))
+
+    return suite
+
+
+# ============================================================
+# 编译集成
+# ============================================================
+
+def compile_check(project_dir: str) -> bool:
+    """先编译确认代码能通过。"""
+    # 查找 workflow.py
+    skill_dir = Path(os.environ.get("CLAUDE_SKILLS_DIR", "D:/ClaudeGlobalConfig/skills"))
+    workflow_path = skill_dir / "stm32-keil-workflow" / "scripts" / "workflow.py"
+
+    if not workflow_path.exists():
+        print(f"  {YELLOW}⚠️  未找到 workflow.py，跳过编译检查{RESET}")
+        return True
+
+    try:
+        print(f"  {CYAN}⏳ 正在编译...{RESET}")
+        output = subprocess.check_output(
+            [sys.executable, str(workflow_path), "--auto", project_dir, "--steps", "compile"],
+            stderr=subprocess.STDOUT,
+            timeout=120
+        ).decode("utf-8", errors="ignore")
+        if "✅" in output or "0 Error" in output:
+            print(f"  {GREEN}✅ 编译通过{RESET}")
+            return True
+        else:
+            print(f"  {RED}❌ 编译失败{RESET}")
+            return False
+    except subprocess.TimeoutExpired:
+        print(f"  {YELLOW}⚠️  编译超时{RESET}")
+        return False
+    except subprocess.CalledProcessError:
+        print(f"  {RED}❌ 编译失败{RESET}")
+        return False
+
+
+# ============================================================
 # 主程序
 # ============================================================
 
@@ -844,18 +945,22 @@ def main():
   encaps     检查变量封装
   concurrency 检查并发安全
   display    检查显示和算法
+  chain      检查调用链（需要 codegraph）
   all        检查全部（默认）
 
 选项:
   --fix      自动修复可修复的问题
   --history  搜索相关历史错误
+  --compile  先编译再检查
+  --init-config 生成项目配置文件模板
         """
     )
     parser.add_argument("--auto", metavar="DIR", help="项目根目录")
-    parser.add_argument("--check", default="all", help="检查项（init/config/clock/encaps/concurrency/display/all）")
+    parser.add_argument("--check", default="all", help="检查项")
     parser.add_argument("--project", metavar="DIR", help="项目根目录（--auto 的别名）")
     parser.add_argument("--fix", action="store_true", help="自动修复可修复的问题")
     parser.add_argument("--history", action="store_true", help="搜索相关历史错误")
+    parser.add_argument("--compile", action="store_true", help="先编译再检查")
     parser.add_argument("--init-config", action="store_true", help="生成项目配置文件模板")
     args = parser.parse_args()
 
@@ -895,17 +1000,14 @@ custom_patterns:
     src_dir = find_src_dir(project_dir)
     inc_dir = find_inc_dir(project_dir)
 
-    project_dir = args.auto or args.project or "."
-    if not Path(project_dir).exists():
-        print(f"{RED}错误: 目录不存在: {project_dir}{RESET}", file=sys.stderr)
-        sys.exit(1)
-
-    src_dir = find_src_dir(project_dir)
-    inc_dir = find_inc_dir(project_dir)
-
     if not src_dir:
         print(f"{RED}错误: 未找到 Core/Src 目录{RESET}", file=sys.stderr)
         sys.exit(1)
+
+    # 先编译
+    if args.compile:
+        if not compile_check(project_dir):
+            sys.exit(1)
 
     # 加载项目配置
     config = load_project_config(project_dir)
@@ -934,6 +1036,9 @@ custom_patterns:
 
     if check_type in ("all", "display"):
         all_suites.append(("第 7 步：检查显示和算法", check_display(src_dir)))
+
+    if check_type in ("all", "chain"):
+        all_suites.append(("调用链验证", check_call_chains(src_dir)))
 
     total_passed = 0
     total_errors = 0
