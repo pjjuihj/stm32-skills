@@ -472,6 +472,30 @@
       "fixed": true,
       "notes": null,
       "tags": []
+    },
+    {
+      "id": 40,
+      "timestamp": "2026-06-28T23:50:59.356071",
+      "error": "ADC DMA只传输一次就停止，波形显示为几乎不变的水平线",
+      "fix": "改用轮询模式(HAL_ADC_PollForConversion)替代DMA；直接操作ADC1->CR2寄存器设置ADON|CONT位，HAL函数会覆盖CR2",
+      "file": "Core/Src/oscilloscope.c",
+      "line": null,
+      "category": "other",
+      "fixed": true,
+      "notes": null,
+      "tags": []
+    },
+    {
+      "id": 41,
+      "timestamp": "2026-06-28T23:51:12.697711",
+      "error": "波形显示压缩成水平线，小信号不可见",
+      "fix": "1.EMA_MIN_RANGE从20改为200，扩展小信号显示范围；2.波形渲染从平均值改为min/max包络，每列画竖线保留信号形状",
+      "file": "Core/Src/display.c",
+      "line": null,
+      "category": "other",
+      "fixed": true,
+      "notes": null,
+      "tags": []
     }
   ],
   "patterns": {
@@ -481,14 +505,14 @@
       "common_fixes": []
     },
     "other": {
-      "count": 37,
-      "fixed_count": 37,
+      "count": 39,
+      "fixed_count": 39,
       "common_fixes": []
     }
   },
   "stats": {
-    "total_records": 39,
-    "total_fixed": 39,
-    "last_updated": "2026-06-26T01:25:46.356204"
+    "total_records": 41,
+    "total_fixed": 41,
+    "last_updated": "2026-06-28T23:51:12.709474"
   }
 }

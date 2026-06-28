@@ -1258,6 +1258,216 @@ def verify_call_chain(project_dir: str, function_name: str) -> dict:
     return result
 
 
+def check_startup_chain(src_dir: Path) -> CheckSuite:
+    """检查启动链完整性：每个 Init 是否有对应的 Start。
+
+    SCOPE-SIGGEN 教训：TIM5 未启动导致 DAC 输出为 0。
+    HAL 的"启动"是分层的：时钟→定时器→外设→DMA。每层都要显式启动。
+    """
+    suite = CheckSuite()
+    c_files = read_c_files(src_dir)
+
+    # 启动链配对：Init → Start
+    chain_pairs = [
+        ("HAL_TIM_Base_Start", "HAL_TIM_Base_Init", "定时器启动"),
+        ("HAL_ADC_Start_DMA", "HAL_ADC_Init", "ADC DMA 启动"),
+        ("HAL_DAC_Start_DMA", "HAL_DAC_Init", "DAC DMA 启动"),
+        ("HAL_UART_Receive_IT", "HAL_UART_Init", "UART 中断接收启动"),
+        ("HAL_SPI_Receive_IT", "HAL_SPI_Init", "SPI 中断接收启动"),
+    ]
+
+    for start_func, init_func, desc in chain_pairs:
+        has_init = False
+        has_start = False
+        init_files = []
+        start_files = []
+
+        for fname, content in c_files:
+            # 跳过 CubeMX 生成的 main.c 中的初始化
+            if fname == "main.c":
+                continue
+            if init_func in content:
+                has_init = True
+                init_files.append(fname)
+            if start_func in content:
+                has_start = True
+                start_files.append(fname)
+
+        if has_init and not has_start:
+            suite.add(CheckResult(
+                f"{desc}链完整",
+                False,
+                f"调用了 {init_func} 但没有调用 {start_func}（文件: {', '.join(init_files)}）",
+                severity="error"
+            ))
+        elif has_init and has_start:
+            suite.add(CheckResult(
+                f"{desc}链完整",
+                True,
+                file=", ".join(start_files)
+            ))
+
+    # 检查 DMA 是否链接到外设（__HAL_LINKDMA）
+    for fname, content in c_files:
+        if "HAL_ADC_MspInit" in content or "HAL_DAC_MspInit" in content:
+            has_linkdma = "__HAL_LINKDMA" in content
+            if not has_linkdma:
+                suite.add(CheckResult(
+                    "DMA 链接到外设",
+                    False,
+                    f"MSP 初始化中没有 __HAL_LINKDMA，DMA 不会关联到外设",
+                    fname,
+                    severity="error"
+                ))
+            else:
+                suite.add(CheckResult(
+                    "DMA 链接到外设",
+                    True,
+                    file=fname
+                ))
+
+    # 检查启动顺序：ADC DMA 应在 TIM 之前启动
+    for fname, content in c_files:
+        adc_start_pos = content.find("HAL_ADC_Start_DMA")
+        tim_start_pos = content.find("HAL_TIM_Base_Start")
+        if adc_start_pos > 0 and tim_start_pos > 0:
+            if adc_start_pos < tim_start_pos:
+                suite.add(CheckResult(
+                    "启动顺序（先 ADC DMA 后 TIM）",
+                    True,
+                    file=fname
+                ))
+            else:
+                suite.add(CheckResult(
+                    "启动顺序（先 ADC DMA 后 TIM）",
+                    False,
+                    "TIM 在 ADC DMA 之前启动，前几个触发信号会丢失",
+                    fname,
+                    severity="warning"
+                ))
+
+    return suite
+
+
+def check_cubemx_traps(src_dir: Path) -> CheckSuite:
+    """检查 CubeMX 默认值陷阱。
+
+    SCOPE-SIGGEN 教训：
+    - TIM_TRGO 默认 RESET，不输出触发信号
+    - DMAContinuousRequests 默认 DISABLE，DMA 只跑一轮
+    - EOCSelection 默认 SEQ_CONV，DMA 请求时机错误
+    """
+    suite = CheckSuite()
+
+    # 检查 main.c 中的 CubeMX 配置
+    main_c = src_dir / "main.c"
+    if not main_c.exists():
+        return suite
+
+    content = main_c.read_text(encoding="utf-8", errors="replace")
+
+    # 检查 1: TIM TRGO 配置
+    # 查找 MasterOutputTrigger 配置
+    tim_trgo_pattern = r'MasterOutputTrigger\s*=\s*TIM_TRGO_(\w+)'
+    for match in re.finditer(tim_trgo_pattern, content):
+        trigger = match.group(1)
+        line_num = content[:match.start()].count('\n') + 1
+        if trigger == "RESET":
+            suite.add(CheckResult(
+                "TIM TRGO 配置",
+                False,
+                f"TIM_TRGO_RESET 不输出触发信号，应改为 TIM_TRGO_UPDATE",
+                f"main.c:{line_num}",
+                severity="error"
+            ))
+        elif trigger in ("UPDATE", "OC1", "OC2", "OC3", "OC4"):
+            suite.add(CheckResult(
+                "TIM TRGO 配置",
+                True,
+                f"TIM_TRGO_{trigger}",
+                f"main.c:{line_num}"
+            ))
+
+    # 检查 2: DMAContinuousRequests 配置
+    dma_cont_pattern = r'DMAContinuousRequests\s*=\s*(\w+)'
+    for match in re.finditer(dma_cont_pattern, content):
+        value = match.group(1)
+        line_num = content[:match.start()].count('\n') + 1
+        if value == "DISABLE":
+            suite.add(CheckResult(
+                "ADC DMAContinuousRequests",
+                False,
+                "DMAContinuousRequests=DISABLE 导致 DMA 只跑一轮，应改为 ENABLE",
+                f"main.c:{line_num}",
+                severity="error"
+            ))
+        elif value == "ENABLE":
+            suite.add(CheckResult(
+                "ADC DMAContinuousRequests",
+                True,
+                file=f"main.c:{line_num}"
+            ))
+
+    # 检查 3: EOCSelection 配置
+    eoc_pattern = r'EOCSelection\s*=\s*ADC_EOC_(\w+)'
+    for match in re.finditer(eoc_pattern, content):
+        value = match.group(1)
+        line_num = content[:match.start()].count('\n') + 1
+        if value == "SEQ_CONV":
+            suite.add(CheckResult(
+                "ADC EOCSelection",
+                False,
+                "ADC_EOC_SEQ_CONV 可能导致 DMA 请求时机错误，建议用 ADC_EOC_SINGLE_CONV",
+                f"main.c:{line_num}",
+                severity="warning"
+            ))
+        elif value == "SINGLE_CONV":
+            suite.add(CheckResult(
+                "ADC EOCSelection",
+                True,
+                file=f"main.c:{line_num}"
+            ))
+
+    # 检查 4: ADC 采样时间
+    sample_time_pattern = r'SampleTime\s*=\s*ADC_SAMPLETIME_(\w+)'
+    for match in re.finditer(sample_time_pattern, content):
+        value = match.group(1)
+        line_num = content[:match.start()].count('\n') + 1
+        cycles = {
+            "3CYCLES": 3, "15CYCLES": 15, "28CYCLES": 28,
+            "56CYCLES": 56, "84CYCLES": 84, "112CYCLES": 112,
+            "144CYCLES": 144, "480CYCLES": 480
+        }.get(value, 0)
+        if cycles <= 84:
+            suite.add(CheckResult(
+                f"ADC 采样时间 ({value})",
+                False,
+                f"{value} 对高阻信号源可能不够（DAC 缓冲器 ~15kΩ 需要 480CYCLES）",
+                f"main.c:{line_num}",
+                severity="warning"
+            ))
+        else:
+            suite.add(CheckResult(
+                f"ADC 采样时间 ({value})",
+                True,
+                file=f"main.c:{line_num}"
+            ))
+
+    # 检查 5: 硬编码时钟频率（在 CubeMX 生成的代码中）
+    hardcoded_clocks = re.findall(r'(\d{7,9})\s*(?:U|UL)?', content)
+    suspicious = [c for c in hardcoded_clocks if c in ("84000000", "168000000", "42000000")]
+    if suspicious:
+        suite.add(CheckResult(
+            "CubeMX 代码无硬编码时钟",
+            False,
+            f"发现硬编码时钟频率: {', '.join(suspicious)}（应使用 HAL_RCC_GetPCLKxFreq()）",
+            "main.c",
+            severity="warning"
+        ))
+
+    return suite
+
+
 def check_call_chains(src_dir: Path) -> CheckSuite:
     """检查关键函数的调用链。"""
     suite = CheckSuite()
@@ -1338,6 +1548,8 @@ def main():
         epilog="""
 检查项:
   init       检查初始化链
+  startup    检查启动链完整性（Init→Start 配对）
+  cubemx     检查 CubeMX 默认值陷阱（TRGO/DMA/EOC/采样时间）
   config     检查配置系统
   clock      检查时钟和定时器
   encaps     检查变量封装
@@ -1437,6 +1649,12 @@ custom_patterns:
 
     if check_type in ("all", "display"):
         all_suites.append(("第 7 步：检查显示和算法", check_display(src_dir)))
+
+    if check_type in ("all", "startup"):
+        all_suites.append(("第 1.5 步：检查启动链完整性", check_startup_chain(src_dir)))
+
+    if check_type in ("all", "cubemx"):
+        all_suites.append(("第 1.6 步：检查 CubeMX 默认值陷阱", check_cubemx_traps(src_dir)))
 
     if check_type in ("all", "chain"):
         all_suites.append(("调用链验证", check_call_chains(src_dir)))
